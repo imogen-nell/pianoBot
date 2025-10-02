@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import serial
 import time
 
@@ -15,5 +17,10 @@ def main():
     while True:
         line = hall.readline().decode(errors= 'ignore').strip()
         if not line:
+            print("no line")
             continue
         print(f"Received: {line}")
+
+if __name__ == "__main__":
+
+	main()
