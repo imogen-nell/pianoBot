@@ -41,11 +41,13 @@ class HallSensor:
             
     def save_data(self, filename):
         while True:
-            with open(filename, 'w') as f:
+            with open(filename, 'a') as f:
                 while not self.data.empty():
                     entry = self.data.get()
                     # file auto closed and saved here
                     f.write(f"{entry[1]}, {entry[0]}\n")
+                    f.flush()
+                time.sleep(0.1)
 
 
     def close(self):
@@ -68,4 +70,9 @@ class HallSensor:
             counter += 1
 
         return str(new_path)
- 
+
+def main():
+    hall = HallSensor()
+    
+if __name__ == "__main__":
+    main()
