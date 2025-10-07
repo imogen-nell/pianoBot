@@ -7,16 +7,19 @@ void setup() {
   Serial.begin(115200);
   analogReference(Vref);
   delay(100);
-  Serial.println("time_ms,adc,voltage_V");
+  Serial.println("time_ms,adc");
 
 }
 
 void loop() {
   int adc = analogRead(hallPin);
-  float voltage = (adc/float(ADCmax))*Vref;
+  // float voltage = (adc/float(ADCmax))*Vref;
   unsigned long t = millis();
-  Serial.println(t, adc);
-  // Serial.print(adc);
-  // Serial.print(voltage,4);
+  Serial.print(t);
+  Serial.print(",");
+  Serial.println(adc);
+  // Serial.print(",");
+  // Serial.println(voltage, 4);
+
   delay(200);
 }

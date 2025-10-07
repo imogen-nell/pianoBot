@@ -32,7 +32,7 @@ class HallSensor:
                 line = serialPort.readline().decode(errors='ignore').strip()
                 if line:
                     self.state = readState.READING
-                    self.data.put((line, time.time()))
+                    self.data.put(line)#, time.time()))
                 else:
                     self.state = readState.WAITING
             except serial.SerialException as e:
