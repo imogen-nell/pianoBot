@@ -45,8 +45,8 @@ class HallSensor:
                 while not self.data.empty():
                     entry = self.data.get()
                     # file auto closed and saved here
-                    f.write(f"{entry[1]}, {entry[0]}\n")
-                    f.flush()
+                    f.write(f"{entry}\n")
+                    # f.flush()
                 time.sleep(0.1)
 
 
