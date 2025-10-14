@@ -23,8 +23,9 @@ class HallSensor:
         filename = self.get_file_name()
         self.save_thread = Thread(target=self.save_data, args=(filename,))
         
-        self.save_thread.start()
+        
         self.read_thread.start()
+        self.save_thread.start()
         
     def read_data(self, serialPort):
         while True:
@@ -33,7 +34,7 @@ class HallSensor:
                 if line:
                     self.state = readState.READING
                     self.data.put(line)#, time.time()))
-                    print("read", line)
+                    # print("read", line)
                 else:
                     self.state = readState.WAITING
             except serial.SerialException as e:
