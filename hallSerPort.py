@@ -15,7 +15,7 @@ class readState(Enum): #currently unused
 
 class serialReader:
     
-    def __init__(self, port= '/dev/ttyUBC0', baud_rate=115200):
+    def __init__(self, port= '/dev/ttyUSB0', baud_rate=115200):
         self.serialPort = serial.Serial(port, baud_rate, timeout=1)
         time.sleep(2)  # Wait for the serial connection to initialize
         self.state = readState.READING
