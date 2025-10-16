@@ -34,10 +34,11 @@ class serialReader:
         while True:
             try:
                 line = serialPort.readline().decode(errors='ignore').strip()
-                if line.startswith("HALL,"):
-                    self.state = readState.READING
-                    _, t, v = line.split(",")
-                    line = f"{t},{v}"
+                if line:
+                # if line.startswith("HALL,"):
+                    # self.state = readState.READING
+                    # _, t, v = line.split(",")
+                    # line = f"{t},{v}"
                     self.halldata.put(line)
                     # print("read", line)
                 else:
@@ -49,8 +50,8 @@ class serialReader:
     def save_data(self, filename):
         while True:
             with open(filename, 'a') as f:
-                while not self.data.empty():
-                    entry = self.data.get()
+                while not self.halldata.empty():
+                    entry = self.halldata.get()
                     # file auto closed and saved here
                     f.write(f"{entry}\n")
                     # f.flush()
