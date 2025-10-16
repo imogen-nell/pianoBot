@@ -34,8 +34,8 @@ class serialReader:
         while True:
             try:
                 line = serialPort.readline().decode(errors='ignore').strip()
-                # if line:
-                if line.startswith("HALL,"):
+                if line:
+                # if line.startswith("HALL,"):
                     self.state = readState.READING
                     _, t, v = line.split(",")
                     line = f"{t},{v}"
