@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import serial
+import serial # type: ignore
 import time
 
 SERIAL_PORT = '/dev/ttyACM0'  # Update this to your serial port
