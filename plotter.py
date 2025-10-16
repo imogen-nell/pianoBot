@@ -11,12 +11,12 @@ def plot_data(x, y, title="Hall Data Plot", xlabel="time", ylabel="voltage"):
     plt.show()
 
 
-data = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_data_10.txt", delimiter=",", skiprows=1)
+data = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_data_40-1-2.txt", delimiter=",", skiprows=1)
 
 
 
-x = data[:, 0]
-y = data[:, 1]
+x = data[:120, 0]
+y = data[:120, 1]
 
 # print(x,y)
 plot_data(x, y)

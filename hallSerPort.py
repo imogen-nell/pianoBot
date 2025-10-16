@@ -6,17 +6,20 @@ from queue import Queue
 from threading import Thread
 from pathlib import Path
 
-class readState(Enum):
+class readState(Enum): #currently unused
     READING = 1
     WAITING = 2
     ERROR = 0
         
-class HallSensor:
+# Read serial data from the hall effect sensor and save to a file
+
+class serialReader:
+    
     def __init__(self, port= '/dev/ttyACM0', baud_rate=115200):
         self.serialPort = serial.Serial(port, baud_rate, timeout=1)
         time.sleep(2)  # Wait for the serial connection to initialize
         self.state = readState.READING
-        self.data  = Queue()
+        self.halldata  = Queue()
         
         self.read_thread = Thread(target=self.read_data, args=(self.serialPort,))
         #get unique filename
@@ -31,9 +34,11 @@ class HallSensor:
         while True:
             try:
                 line = serialPort.readline().decode(errors='ignore').strip()
-                if line:
+                if line.startswith("HALL,"):
                     self.state = readState.READING
-                    self.data.put(line)#, time.time()))
+                    _, t, v = line.split(",")
+                    line = f"{t},{v}"
+                    self.halldata.put(line)
                     # print("read", line)
                 else:
                     self.state = readState.WAITING
@@ -72,9 +77,19 @@ class HallSensor:
             counter += 1
 
         return str(new_path)
+    
+    
+# class voiceCoilController:
+#     def __init__(self, port= '/dev/ttyACM0', baud_rate=115200):
+#         self.serialPort = serial.Serial(port, baud_rate, timeout=1)
+        
+    
 
 def main():
-    hall = HallSensor()
+    #start reading from the hall sensor & saving to file
+    hall = serialReader()
+    # coil = voiceCoilController()
+    #To add for later : voice coil controller 
     
 if __name__ == "__main__":
     main()
