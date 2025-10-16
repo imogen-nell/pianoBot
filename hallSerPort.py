@@ -15,7 +15,7 @@ class readState(Enum): #currently unused
 
 class serialReader:
     
-    def __init__(self, port= '/dev/ttyACM0', baud_rate=115200):
+    def __init__(self, port= '/dev/ttyUBC0', baud_rate=115200):
         self.serialPort = serial.Serial(port, baud_rate, timeout=1)
         time.sleep(2)  # Wait for the serial connection to initialize
         self.state = readState.READING
@@ -34,11 +34,11 @@ class serialReader:
         while True:
             try:
                 line = serialPort.readline().decode(errors='ignore').strip()
-                if line:
-                # if line.startswith("HALL,"):
-                    # self.state = readState.READING
-                    # _, t, v = line.split(",")
-                    # line = f"{t},{v}"
+                # if line:
+                if line.startswith("HALL,"):
+                    self.state = readState.READING
+                    _, t, v = line.split(",")
+                    line = f"{t},{v}"
                     self.halldata.put(line)
                     # print("read", line)
                 else:

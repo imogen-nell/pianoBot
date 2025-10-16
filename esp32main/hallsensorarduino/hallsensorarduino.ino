@@ -5,7 +5,7 @@ const int ADCmax = 1023;
 
 void setup() {
   Serial.begin(115200);
-  analogReference(DEFAULT);
+  // analogReference(DEFAULT);
   delay(100);
   // Serial.println("time_ms,adc");
 
@@ -21,5 +21,5 @@ void loop() {
   // Serial.print(",");
   // Serial.println(voltage, 4);
 
-  delay(2);
+  delay(1);
 }
