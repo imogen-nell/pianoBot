@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../Desktop/PIANOBOT/pianoBot/esp32main"
+		},
+		{
+			"name": "PianoBotInt",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}

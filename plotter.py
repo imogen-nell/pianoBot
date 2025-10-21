@@ -1,29 +1,52 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_data(x, y, title="Hall Data Plot", xlabel="time", ylabel="voltage"):
-    plt.figure()
-    plt.plot(x, y)
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.grid()
-    plt.show()
 
 
-data = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_data.txt", delimiter=",", skiprows=1,usecols=range(1, 3))
-# data2 = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_data2.txt", delimiter=",", skiprows=1)
-
-print(data.shape)
+data = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_time_data_2.txt", delimiter=",", skiprows=1)#usecols=range(1, 3))
 
 
+# print(data.shape)
+start = 0
+end = len(data)
+end = int(end)
+# end = 650
+
+pressed = 2.43
+released = 2.18
+
+x = data[start:end, 0]#/1000  # Convert ms to s
+y = data[start:end, 1]
+#sort data by ascending x values
+sort_indices = np.argsort(x)
+x = x[sort_indices]
+y = y[sort_indices]
+
+# print(len(x), len(clean_x))
+# v_ref = 5  # Reference voltage to hall
+# y = adc_reading * (v_ref / 4095.0)  # Convert 12 bit esp32 ADC reading to voltage
 
 
-x = data[:, 0]
-y = data[:, 1]
+coeffs = np.polyfit(x, y, 1)  # 1 = linear
+slope, intercept = coeffs
+y_fit = slope * x + intercept
 
+
+# x2, y2 = data2[:, 0], data2[:, 1]
 # print(x,y)
-plot_data(x, y)
+plt.plot(x, y, markersize=3, label="Hall Voltage")
+
+# plt.plot(x, y_fit, 'r-', linewidth=2, label=f"Linear Fit: y= {slope:.2f}x + {intercept:.2f}")
+
+plt.legend()
+plt.xlabel("time ")
+# plt.xlabel("position ")
+
+plt.ylabel(" Voltage (V)")
+# plt.title("Hall Data,  magnet, VC ONN")
+plt.show()
+
+# plot_data(x2, y2, title="Hall Data VC OFF", xlabel="time", ylabel="Hall")
 # plot_data(data2[:,0], data2[:,1], title="Hall Data Plot 2", xlabel="time", ylabel="voltage")
 print("Data plotted successfully.")
-plt.savefig("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_data_plot.png")
+# plt.savefig("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_data_ploton.png")
