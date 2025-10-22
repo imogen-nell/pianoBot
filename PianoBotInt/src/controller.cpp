@@ -12,48 +12,60 @@ static float Kd = 0.0f;
 
 
 //controller state only accessed by controller task
-static int target_volt = 255;
+static volatile float target_pos = 0.0f;
 static float previous_error = 0.0f;
 static float integral = 0.0f;
+static const float VREF = 3.3f; //reference voltage for hall sensor
 
 //task config
-static int control_loop_delay_ms = 2; //default 2ms
 static TaskHandle_t controllerTaskHandle = nullptr;
 
 //shared variable from sensor
-extern volatile float current_volt;  // extern is vvvvv important!
 
 //pid 
-static int compute_pid(int target, float current){
-    // float error = target - current;
-    // integral += error * (control_loop_delay_ms / 1000.0f); //integral intime 
-    // float derivative = (error - previous_error) / (control_loop_delay_ms / 1000.0f);
-    // previous_error = error;
+//** Takes in target voltage for hall sensor
+//return pwm control value -255 to 255
+static int compute_pid(float target, float current){
+    float dt = 2 / 1000.0f; //loop time in seconds
+    float error = target - current;
+    integral += error * dt; //integral intime = loop delay 2ms
+    float derivative = (error - previous_error) / dt;
+    previous_error = error;
 
-    // float output = Kp * error + Ki * integral + Kd * derivative;
-    // return static_cast<int>(output);
-    return target;
+    float output = Kp * error + Ki * integral + Kd * derivative;
+    //clamp
+    output = ((output)<(-1.0f)?(-1.0f):((output)>(1.0f)?(1.0f):(output)));
+    int pwm_ctrl = output * 255;
+    Serial.printf("PID,%lu,%.4f,%d\n", millis(), output, pwm_ctrl);
+    return static_cast<int>(pwm_ctrl);
+    // return (int) target;
 }
+
+// //pid helper
+// static int target_volt_to_pwm(float target_volt) {
+//     //for debugging
+//     return int(target_volt);
+//     // return (int) ((target_volt * 255) / VREF);
+// }
 
 //controller task
 static void controllerTask(void* pvParameters){
     while(1){
 
-        int control_signal = compute_pid(target_volt, current_volt);
+        int control_signal = compute_pid(target_pos, current_volt);
         //TODO clamp here ? 
         set_pwm(control_signal);
 
-        vTaskDelay(control_loop_delay_ms / portTICK_PERIOD_MS);
+        vTaskDelay(2 / portTICK_PERIOD_MS);
     }
 }
 
 
 //public API
-void init_controller(float kp, float ki, float kd, int loop_delay_ms){
+void init_controller(float kp, float ki, float kd){
     Kp = kp;
     Ki = ki;
     Kd = kd;
-    control_loop_delay_ms = loop_delay_ms;
 
     //initialize sensor and actuator
     init_sensor();
@@ -72,6 +84,12 @@ void init_controller(float kp, float ki, float kd, int loop_delay_ms){
 }
 
 //set in main 
-void set_target(int newTarget) {
-    target_volt = newTarget;
+//sets target position for controller
+void set_target(float newTarget) {
+    target_pos = newTarget;
 }
+
+//set target helper
+// float target_position_to_voltage() {
+//     return target_volt;
+// }

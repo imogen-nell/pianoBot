@@ -9,20 +9,31 @@
 // const int repeated_note[63] = {1, 5, 12, 22, 34, 49, 66, 87, 110, 135, 164, 195, 229, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, -71, -34, -9, 1, 5, 12, 22, 34, 49, 66, 87, 110, 135, 164, 195, 229};
 // ---  target sweep ---
 // float target_voltage = 1.5f; // initial target in volts
-int target_pwm = 255; // initial target in PWM
 
 void setup() {
   //serial set up for hall
   Serial.begin(115200);
-  init_controller(0.1f, 0.00f, 0.0f, 2);
+  init_controller(0.1f, 0.00f, 0.0f);
 
 }
 
 void loop() {
     // Example: sweep the target PWM up and down
   // Update controller target
-  set_target(target_pwm);
-  delay(1); // optional, small delay for serial printing
+  //hold for 2 seconds
+  float timer_start = millis() / 1000.0f;
+  while (millis() / 1000.0f - timer_start < 2.0f) {
+    float target_position = 1.0f;
+    set_target(target_position);
+  }
+  //release 2 seconds
+  timer_start = millis() / 1000.0f;
+  while (millis() / 1000.0f - timer_start < 2.0f) {
+    float target_position = 1.8f;
+    set_target(target_position);
+  }
+
+  
 
 }
 

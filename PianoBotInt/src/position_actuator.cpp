@@ -5,9 +5,9 @@
 
 const int PWM_PIN = 5;
 const int DIR_PIN = 2;
-static int channel = 0;       // LEDC channel (0–15)
+// static int channel = 0;       // LEDC channel (0–15)
 static int resolution = 8;    // 8-bit PWM (0–255)
-static int freq = 5000;       // 5 kHz
+static int freq = 5000;       // 5 kHz, max 20kHz for motor driver
 
 //control val
 static volatile int ctrl_pwm = 0; //shared variable
@@ -22,26 +22,23 @@ void actuatorTask(void* params){ //FreeRTOS mus return void  & accept single arg
     while(1){
         int pwm = ctrl_pwm;
         bool dir = pwm >= 0;
-        pwm = abs(pwm);
         //clamp
         if (pwm > 255) {
             pwm = 255;
         }
         //for debugging
-        Serial.printf("PWM log,%lu,%d\n", millis(), pwm);
+        // Serial.printf("PWM log,%lu,%d\n", millis(), pwm);
         digitalWrite(DIR_PIN, dir); // Set direction
-        ledcWrite(channel, pwm); // Set PWM
-        vTaskDelay(1 / portTICK_PERIOD_MS); // run every 1 ms
+        analogWrite(PWM_PIN, pwm); // Set PWM value
+        vTaskDelay(2 / portTICK_PERIOD_MS); // run every 2 ms
     }
 }
 
 //implementation
 void init_actuator(){
     //initialize pins
-    // pinMode(PWM_PIN, OUTPUT);
     pinMode(DIR_PIN, OUTPUT);
-    ledcSetup(channel, freq, resolution);
-    ledcAttachPin(PWM_PIN, channel);
+    // analogWriteFrequency(freq) ; //default 5khz
 
     //create FreeRTOS task
     xTaskCreatePinnedToCore(
@@ -60,10 +57,9 @@ void set_pwm(int pwm_value){
 }
 
 void stop_actuator(){
-    //kill task
-    // if (actuatorTaskHandle != nullptr) {
-    //     vTaskDelete(actuatorTaskHandle);
-    //     actuatorTaskHandle = nullptr;
-    // }
-    ledcWrite(channel, 0); // Set PWM to 0
+    // kill task
+    if (actuatorTaskHandle != nullptr) {
+        vTaskDelete(actuatorTaskHandle);
+        actuatorTaskHandle = nullptr;
+    }
 }

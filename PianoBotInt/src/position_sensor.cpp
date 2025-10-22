@@ -8,6 +8,7 @@ static constexpr float VREF = 3.3f;
 static const int HALL_PIN = 35;  //ADC1_7 GPIO35
 
 static TaskHandle_t hallReadTaskHandle = nullptr;
+//do i need to initialise shared variable here?
 extern volatile float current_volt = 0.0f; //shared with controller task
 
 void hallReadTask(void* parameter){
@@ -15,15 +16,18 @@ void hallReadTask(void* parameter){
     while(1) {
         int adc_value = analogRead(HALL_PIN);
         ///set shared variable for controller
-        current_volt = (adc_value / ADC_MAX) * VREF;
+        current_volt = (float) (adc_value / ADC_MAX) * VREF;
         //send to laptop for logging
         Serial.printf("Hall,%lu,%.4f\n", millis(), current_volt);
-        vTaskDelay(5 / portTICK_PERIOD_MS); //5ms
+        vTaskDelay(2 / portTICK_PERIOD_MS); 
     }
 }
 
 void init_sensor( ){
-    analogReadResolution(12); // ESP32 default
+    // analogReference(3.3); //set ref to 3.3V
+    // analogReadResolution(12); // ESP32 default
+    // pinMode(HALL_PIN, INPUT);
+    // delay(100)
 
     xTaskCreatePinnedToCore(
         hallReadTask,

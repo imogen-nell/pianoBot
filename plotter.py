@@ -3,14 +3,12 @@ import numpy as np
 
 
 
-data = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall_time_data_2.txt", delimiter=",", skiprows=1)#usecols=range(1, 3))
-
+data     = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\hall.txt", delimiter=",", skiprows=1)#usecols=range(1, 3))
+pid_data = np.loadtxt("C:\\Users\\Imoge\\OneDrive - UBC\\Desktop\\PIANOBOT\\pianoBot\\halldata\\pwm.txt", delimiter=",", skiprows=1)#usecols=range(1, 3))
 
 # print(data.shape)
 start = 0
 end = len(data)
-end = int(end)
-# end = 650
 
 pressed = 2.43
 released = 2.18
@@ -22,6 +20,8 @@ sort_indices = np.argsort(x)
 x = x[sort_indices]
 y = y[sort_indices]
 
+pid_time = pid_data[:,0]
+pid_pwm = pid_data[:,2]
 # print(len(x), len(clean_x))
 # v_ref = 5  # Reference voltage to hall
 # y = adc_reading * (v_ref / 4095.0)  # Convert 12 bit esp32 ADC reading to voltage
@@ -35,7 +35,7 @@ y_fit = slope * x + intercept
 # x2, y2 = data2[:, 0], data2[:, 1]
 # print(x,y)
 plt.plot(x, y, markersize=3, label="Hall Voltage")
-
+plt.plot(pid_time, pid_pwm, label="PWM Output ")  # Scale PWM to 0-5V for comparison
 # plt.plot(x, y_fit, 'r-', linewidth=2, label=f"Linear Fit: y= {slope:.2f}x + {intercept:.2f}")
 
 plt.legend()

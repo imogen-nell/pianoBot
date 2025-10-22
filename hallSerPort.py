@@ -33,34 +33,43 @@ class hallSensor:
         
         
         self.halldata  = Queue() #unused if inm keyboard mode 
+        self.pwmdata  = Queue()
         self.running = True # Control flag for threads, needed despite daemon if i want to start/stop threads cleanly while program is running
         self.mode = mode
-        filename = self.get_file_name() #unique filename
-
+        filename = self.get_file_name("hall.txt") #unique filename
+        pid_filename = self.get_file_name("pwm.txt")
+        print(f"Saving hall data to {filename}")
+        print(f"Saving PWM data to {pid_filename}")
         #threads
         self.read_thread = Thread(target=self.read_data, args=(self.serialPort,), daemon=True) #daemon so it stops w program
-        self.save_thread = Thread(target=self.save_data, args=(filename,), daemon=True)
+        self.save_thread = Thread(target=self.save_data, args=(filename, self.halldata), daemon=True)
+        self.save_pid_thread = Thread(target=self.save_data, args=(pid_filename, self.pwmdata), daemon=True)
         self.read_thread.start()
         self.save_thread.start()
-        
+        self.save_pid_thread.start()
         self.latest_hall_value = None
         
     def read_data(self, serialPort):
         """ Continuously read data from serial port and put in queue """
-        v_ref = 5.0 ##5.0
-        v_conv = v_ref / 4095.0  # convert voltage
-
+        # v_ref = 5.0 ##5.0
+        # v_conv = v_ref / 4095.0  # convert voltage
+        ##voltage converted in controller 
         while self.running:
             if self.mode == "continuous":
                 try:
                     #add data to queue to be saved
                     line = serialPort.readline().decode(errors='ignore').strip()
+                    # print(line)
                     if line[:4] == "Hall": #useful later when more sensors 
                         _, t, v = line.split(",")
-                        v = float(v) * v_conv
+                        # v = float(v) * v_conv
                         line = f"{t},{v}"
                         self.halldata.put(line)
-
+                    elif line[:3] == "PID":
+                        _, t, pid_out,pwm = line.split(",")
+                        # v = float(v) * v_conv
+                        line = f"{t},{pid_out},{pwm}"
+                        self.pwmdata.put(line)
                 except serial.SerialException as e:
                     print(f"Serial error: {e}")
                     self.running = False
@@ -72,15 +81,15 @@ class hallSensor:
                         line = serialPort.readline().decode(errors='ignore').strip()
                         if line[:4] == "Hall":
                             _, t, v = line.split(",")
-                            total +=float(v) * v_conv 
+                            total +=float(v)  
                     self.latest_hall_value = total / 10
                 except serial.SerialException as e:
                     print(f"Serial error: {e}")
                     self.running = False
 
-            
-    def save_data(self, filename):
-        while self.running:#makesure thread stopes when main program stops w keyboard interrupt
+
+    def save_data(self, filename, data_queue = None):
+        while self.running:#makesure thread stops when main program stops w keyboard interrupt
             if self.mode == "keyboard":
                 try:
                     #get keyboard input
@@ -95,8 +104,8 @@ class hallSensor:
             else: #continuous mode
                 while self.running:
                     with open(filename, 'a') as f:
-                        while not self.halldata.empty():
-                            entry = self.halldata.get()
+                        while not data_queue.empty():
+                            entry = data_queue.get()
                             f.write(f"{entry}\n")
                         time.sleep(0.1)
 
@@ -105,13 +114,10 @@ class hallSensor:
         time.sleep(0.2)  # Let threads finish current loop
         self.serialPort.close()
         
-    def get_file_name(self):
+    def get_file_name(self, filename ):
         # Generate a unique filename based on the current timestamp
         path = r"C:\Users\Imoge\OneDrive - UBC\Desktop\PIANOBOT\pianoBot\halldata"
-        if self.mode == "keyboard":
-            filename = "hall_pos_data.txt"
-        else:
-            filename = "hall_time_data.txt"
+
         # file_path = Path(filename)
         file_path = Path(path) / filename
         stem = file_path.stem      # filename without extension
