@@ -19,6 +19,8 @@ static const float VREF = 3.3f; //reference voltage for hall sensor
 
 //task config
 static TaskHandle_t controllerTaskHandle = nullptr;
+extern volatile int ctrl_pwm = 0; //shared with actuator task
+
 
 //shared variable from sensor
 
@@ -41,20 +43,14 @@ static int compute_pid(float target, float current){
     // return (int) target;
 }
 
-// //pid helper
-// static int target_volt_to_pwm(float target_volt) {
-//     //for debugging
-//     return int(target_volt);
-//     // return (int) ((target_volt * 255) / VREF);
-// }
-
 //controller task
+//reads sensor, computes control, sets actuator command
 static void controllerTask(void* pvParameters){
     while(1){
-
-        int control_signal = compute_pid(target_pos, current_volt);
-        //TODO clamp here ? 
-        set_pwm(control_signal);
+        
+        int control_signal = compute_pid(target_pos, current_position);
+        //set actuator command
+        ctrl_pwm = control_signal;
 
         vTaskDelay(2 / portTICK_PERIOD_MS);
     }
@@ -67,11 +63,11 @@ void init_controller(float kp, float ki, float kd){
     Ki = ki;
     Kd = kd;
 
-    //initialize sensor and actuator
+    //initialize linear motion sensor and actuator
     init_sensor();
     init_actuator();
 
-    //create controller taskf
+    //create controller task
     xTaskCreatePinnedToCore(
         controllerTask,
         "controllerTask",
@@ -83,13 +79,8 @@ void init_controller(float kp, float ki, float kd){
     );
 }
 
-//set in main 
+
 //sets target position for controller
 void set_target(float newTarget) {
-    target_pos = newTarget;
+    target_pos = newTarget; //target set in main for now (change l8r?) 
 }
-
-//set target helper
-// float target_position_to_voltage() {
-//     return target_volt;
-// }

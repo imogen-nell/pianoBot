@@ -11,14 +11,16 @@
 // float target_voltage = 1.5f; // initial target in volts
 
 void setup() {
-  //serial set up for hall
   Serial.begin(115200);
-  init_controller(0.1f, 0.00f, 0.0f);
+  float p = 0.1f;
+  float i = 0.00f;
+  float d = 0.0f;
+  //vertical motion controller (note playing for 1 finger)
+  init_controller(p, i, d);
 
 }
 
 void loop() {
-    // Example: sweep the target PWM up and down
   // Update controller target
   //hold for 2 seconds
   float timer_start = millis() / 1000.0f;
@@ -32,8 +34,6 @@ void loop() {
     float target_position = 1.8f;
     set_target(target_position);
   }
-
-  
 
 }
 

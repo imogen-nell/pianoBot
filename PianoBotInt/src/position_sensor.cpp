@@ -4,30 +4,32 @@
 #include "position_sensor.h"
 //calibration constants
 static constexpr float ADC_MAX = 4095.0f;  // 12-bit ADC
-static constexpr float VREF = 3.3f;    
+static constexpr float VREF = 3.3f;  // i think this is 1.1?   
 static const int HALL_PIN = 35;  //ADC1_7 GPIO35
 
-static TaskHandle_t hallReadTaskHandle = nullptr;
-//do i need to initialise shared variable here?
-extern volatile float current_volt = 0.0f; //shared with controller task
+static TaskHandle_t hallReadTaskHandle = nullptr;//rtos task handle
 
+
+extern volatile float current_position = 0.0f; //shared with controller task
+
+
+//read hall sensor and update current_position
 void hallReadTask(void* parameter){
-    //convert to position (mm) later!!!
+    //TODO: convert voltage to position (mm) 
     while(1) {
+        //set current position
         int adc_value = analogRead(HALL_PIN);
-        ///set shared variable for controller
-        current_volt = (float) (adc_value / ADC_MAX) * VREF;
+        current_position = (float) (adc_value / ADC_MAX) * VREF; //TODO: to mm 
+
         //send to laptop for logging
-        Serial.printf("Hall,%lu,%.4f\n", millis(), current_volt);
+        Serial.printf("Hall,%lu,%.4f\n", millis(), current_position);
         vTaskDelay(2 / portTICK_PERIOD_MS); 
     }
 }
 
 void init_sensor( ){
-    // analogReference(3.3); //set ref to 3.3V
-    // analogReadResolution(12); // ESP32 default
-    // pinMode(HALL_PIN, INPUT);
-    // delay(100)
+    analogReadResolution(12); // ESP32 default
+    // no need to set pinMode for analog input on esp32
 
     xTaskCreatePinnedToCore(
         hallReadTask,
@@ -40,6 +42,3 @@ void init_sensor( ){
     );
 
 }
-// void calibrate_sensor(){
-//     //TODO implement calibration routine
-// }

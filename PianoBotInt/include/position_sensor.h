@@ -2,8 +2,8 @@
 #include <Arduino.h>
 //hall interface 
 
+//** Initialize the hall sensor */
 void init_sensor( );
 
-// float read_sensor();
-
-extern volatile float current_volt;
+//read by controller, set by sensor 
+extern volatile float current_position;
