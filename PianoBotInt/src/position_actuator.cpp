@@ -1,8 +1,9 @@
 #include <Arduino.h>
-#include "position_actuator.h"
-#include "controller.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "position_actuator.h"
+#include "controller.h"
+
 
 //esp32 pins
 const int PWM_PIN = 5;
@@ -22,7 +23,7 @@ void actuatorTask(void* params){ //FreeRTOS mus return void  & accept single arg
         bool dir = ctrl_pwm >= 0;
         digitalWrite(DIR_PIN, dir); // Set direction
         analogWrite(PWM_PIN, ctrl_pwm); // Set PWM value
-
+        Serial.printf("PID,%lu,%d\n", millis(), ctrl_pwm);
         vTaskDelay(2 / portTICK_PERIOD_MS); // run every 2 ms
     }
 }
@@ -32,7 +33,6 @@ void init_actuator(){
     //initialize pins to motor driver
     pinMode(DIR_PIN, OUTPUT);
     analogWriteFrequency(freq) ; //default 5khz
-
     //create FreeRTOS task
     xTaskCreatePinnedToCore(
         actuatorTask,

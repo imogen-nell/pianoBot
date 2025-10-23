@@ -10,3 +10,4 @@ void set_target(float new_target);
 
 //read by actuator, set by controller
 extern volatile int ctrl_pwm;
+extern volatile float current_position;

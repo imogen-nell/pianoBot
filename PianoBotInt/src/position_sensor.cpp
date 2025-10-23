@@ -2,6 +2,8 @@
 //data from hall to ADC input of esp32
 #include <Arduino.h>
 #include "position_sensor.h"
+#include "controller.h"
+
 //calibration constants
 static constexpr float ADC_MAX = 4095.0f;  // 12-bit ADC
 static constexpr float VREF = 3.3f;  // i think this is 1.1?   
@@ -9,8 +11,6 @@ static const int HALL_PIN = 35;  //ADC1_7 GPIO35
 
 static TaskHandle_t hallReadTaskHandle = nullptr;//rtos task handle
 
-
-extern volatile float current_position = 0.0f; //shared with controller task
 
 
 //read hall sensor and update current_position

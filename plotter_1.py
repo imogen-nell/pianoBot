@@ -2,17 +2,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Load data
-data     = np.loadtxt(r"C:\Users\Imoge\OneDrive - UBC\Desktop\PIANOBOT\pianoBot\halldata\hall.txt", delimiter=",", skiprows=1)
-pid_data = np.loadtxt(r"C:\Users\Imoge\OneDrive - UBC\Desktop\PIANOBOT\pianoBot\halldata\pwm.txt", delimiter=",", skiprows=1)
+data     = np.loadtxt(r"C:\Users\Imoge\OneDrive - UBC\Desktop\PIANOBOT\pianoBot\halldata\hall_2.txt", delimiter=",", skiprows=1)
+pid_data = np.loadtxt(r"C:\Users\Imoge\OneDrive - UBC\Desktop\PIANOBOT\pianoBot\halldata\pwm_2.txt", delimiter=",", skiprows=1)
+# ctlr_data = np.loadtxt(r"C:\Users\Imoge\OneDrive - UBC\Desktop\PIANOBOT\pianoBot\halldata\ctrl_2.txt", delimiter=",", skiprows=1)
+
 
 start = 0
-end = len(data)
+end = int(len(data))
 
-pressed = 2.43
-released = 2.18
+
 
 # Hall sensor data
-x = data[start:end, 0]  # time (ms)
+x = data[start:end, 0] /1000 # time (ms)
 y = data[start:end, 1]  # hall voltage
 
 # Sort data by time
@@ -21,15 +22,18 @@ x = x[sort_indices]
 y = y[sort_indices]
 
 # PID data
-pid_time = pid_data[:, 0]
-pid_pwm = pid_data[:, 2]
+pid_time = pid_data[start:end, 0]/1000
+pid_pwm = pid_data[start:end, 1]
+
+# ctrl_time = ctlr_data[:,0]/1000
+# ctrl_pwm = ctlr_data[:,1]
 
 # --- Plot ---
 fig, ax1 = plt.subplots(figsize=(10, 5))
 
 # Left Y-axis → Hall voltage
 color1 = 'tab:blue'
-ax1.set_xlabel("Time (ms)")
+ax1.set_xlabel("Time (s)")
 ax1.set_ylabel("Hall Voltage (V)", color=color1)
 ax1.plot(x, y, color=color1, label="Hall Voltage", linewidth=1)
 ax1.tick_params(axis='y', labelcolor=color1)
@@ -38,9 +42,10 @@ ax1.tick_params(axis='y', labelcolor=color1)
 ax2 = ax1.twinx()
 color2 = 'tab:red'
 ax2.set_ylabel("PWM Output", color=color2)
-ax2.plot(pid_time, pid_pwm, color=color2, label="PWM Output", linewidth=1, alpha=0.8)
+# ax2.plot(ctrl_time, ctrl_pwm, color=color2, label="CTRL Output", linewidth=1, alpha=0.8)
+ax2.plot(pid_time, pid_pwm,  color=color2,label="PWM Output", linewidth=1, alpha=0.8)
 ax2.tick_params(axis='y', labelcolor=color2)
-
+ax2.legend()
 # Optional: grid, legend, title
 fig.suptitle("Hall Voltage vs PWM Output Over Time")
 fig.tight_layout()

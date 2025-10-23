@@ -6,4 +6,4 @@
 void init_sensor( );
 
 //read by controller, set by sensor 
-extern volatile float current_position;
+// extern volatile float current_position;

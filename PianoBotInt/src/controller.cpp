@@ -16,20 +16,20 @@ static volatile float target_pos = 0.0f;
 static float previous_error = 0.0f;
 static float integral = 0.0f;
 static const float VREF = 3.3f; //reference voltage for hall sensor
-
+static const float dt = 2 / 1000.0f; //loop time in seconds
 //task config
 static TaskHandle_t controllerTaskHandle = nullptr;
-extern volatile int ctrl_pwm = 0; //shared with actuator task
 
+//init shared variables
+volatile int ctrl_pwm = 0;
+volatile float current_position = 0.0f;
 
-//shared variable from sensor
 
 //pid 
 //** Takes in target voltage for hall sensor
 //return pwm control value -255 to 255
-static int compute_pid(float target, float current){
-    float dt = 2 / 1000.0f; //loop time in seconds
-    float error = target - current;
+static void set_pwm(void){
+    float error = target_pos - current_position;
     integral += error * dt; //integral intime = loop delay 2ms
     float derivative = (error - previous_error) / dt;
     previous_error = error;
@@ -37,10 +37,9 @@ static int compute_pid(float target, float current){
     float output = Kp * error + Ki * integral + Kd * derivative;
     //clamp
     output = ((output)<(-1.0f)?(-1.0f):((output)>(1.0f)?(1.0f):(output)));
-    int pwm_ctrl = output * 255;
-    Serial.printf("PID,%lu,%.4f,%d\n", millis(), output, pwm_ctrl);
-    return static_cast<int>(pwm_ctrl);
-    // return (int) target;
+    ctrl_pwm = (int) (output * 255);
+    // Serial.printf("CTRL,%lu,%d\n", millis(),ctrl_pwm);
+
 }
 
 //controller task
@@ -48,9 +47,8 @@ static int compute_pid(float target, float current){
 static void controllerTask(void* pvParameters){
     while(1){
         
-        int control_signal = compute_pid(target_pos, current_position);
+        set_pwm();
         //set actuator command
-        ctrl_pwm = control_signal;
 
         vTaskDelay(2 / portTICK_PERIOD_MS);
     }
@@ -63,7 +61,7 @@ void init_controller(float kp, float ki, float kd){
     Ki = ki;
     Kd = kd;
 
-    //initialize linear motion sensor and actuator
+    // //initialize linear motion sensor and actuator
     init_sensor();
     init_actuator();
 
@@ -82,5 +80,5 @@ void init_controller(float kp, float ki, float kd){
 
 //sets target position for controller
 void set_target(float newTarget) {
-    target_pos = newTarget; //target set in main for now (change l8r?) 
+    target_pos = newTarget; 
 }

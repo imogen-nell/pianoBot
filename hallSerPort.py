@@ -34,19 +34,28 @@ class hallSensor:
         
         self.halldata  = Queue() #unused if inm keyboard mode 
         self.pwmdata  = Queue()
+        self.ctrldata = Queue()
         self.running = True # Control flag for threads, needed despite daemon if i want to start/stop threads cleanly while program is running
         self.mode = mode
         filename = self.get_file_name("hall.txt") #unique filename
         pid_filename = self.get_file_name("pwm.txt")
+        ctrl_filename = self.get_file_name("ctrl.txt")
         print(f"Saving hall data to {filename}")
         print(f"Saving PWM data to {pid_filename}")
+        print(f"Saving CTRLR PWM data to {ctrl_filename}")
         #threads
         self.read_thread = Thread(target=self.read_data, args=(self.serialPort,), daemon=True) #daemon so it stops w program
         self.save_thread = Thread(target=self.save_data, args=(filename, self.halldata), daemon=True)
         self.save_pid_thread = Thread(target=self.save_data, args=(pid_filename, self.pwmdata), daemon=True)
+        self.save_CTRL_thread = Thread(target=self.save_data, args=(ctrl_filename, self.ctrldata), daemon=True)
+
+        
         self.read_thread.start()
+        
         self.save_thread.start()
+        self.save_CTRL_thread.start()
         self.save_pid_thread.start()
+        
         self.latest_hall_value = None
         
     def read_data(self, serialPort):
@@ -66,10 +75,15 @@ class hallSensor:
                         line = f"{t},{v}"
                         self.halldata.put(line)
                     elif line[:3] == "PID":
-                        _, t, pid_out,pwm = line.split(",")
+                        _, t, pwm = line.split(",")
                         # v = float(v) * v_conv
-                        line = f"{t},{pid_out},{pwm}"
+                        line = f"{t},{pwm}"
                         self.pwmdata.put(line)
+                    elif line[:4] == "CTRL":
+                        _, t, pwm = line.split(",")
+                        # v = float(v) * v_conv
+                        line = f"{t},{pwm}"
+                        self.ctrldata.put(line)
                 except serial.SerialException as e:
                     print(f"Serial error: {e}")
                     self.running = False
