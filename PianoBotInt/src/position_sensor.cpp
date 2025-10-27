@@ -6,7 +6,7 @@
 
 //calibration constants
 static constexpr float ADC_MAX = 4095.0f;  // 12-bit ADC
-static constexpr float VREF = 3.3f;  // i think this is 1.1?   
+static constexpr float VREF = 3.3f;  //  
 static const int HALL_PIN = 35;  //ADC1_7 GPIO35
 
 static TaskHandle_t hallReadTaskHandle = nullptr;//rtos task handle
@@ -19,7 +19,7 @@ void hallReadTask(void* parameter){
     while(1) {
         //set current position
         int adc_value = analogRead(HALL_PIN);
-        current_position = (float) (adc_value / ADC_MAX) * VREF; //TODO: to mm 
+        current_position = (float) (adc_value / ADC_MAX) * VREF;
 
         //send to laptop for logging
         Serial.printf("Hall,%lu,%.4f\n", millis(), current_position);
@@ -36,7 +36,7 @@ void init_sensor( ){
         "hallReadTask",
         4096, //stack size, 4kB
         NULL, //params
-        2, //priority
+        2, // high priority
         &hallReadTaskHandle, //task handle
         1 //2 cores 0,1 
     );

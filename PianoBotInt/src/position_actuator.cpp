@@ -10,7 +10,7 @@ const int PWM_PIN = 5;
 const int DIR_PIN = 2;
 
 // static int resolution = 8;    // 8-bit PWM (0–255)
-static int freq = 10000;       // 10 kHz, max 20kHz for motor driver
+static int freq = 5000;       //  max 20kHz for motor driver
 
  
 //rtos task handle
@@ -32,7 +32,7 @@ void actuatorTask(void* params){ //FreeRTOS mus return void  & accept single arg
 void init_actuator(){
     //initialize pins to motor driver
     pinMode(DIR_PIN, OUTPUT);
-    analogWriteFrequency(freq) ; //default 5khz
+    // analogWriteFrequency(freq) ; //default 5khz
     //create FreeRTOS task
     xTaskCreatePinnedToCore(
         actuatorTask,

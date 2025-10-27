@@ -14,8 +14,8 @@ static float Kd = 0.0f;
 //controller state only accessed by controller task
 static volatile float target_pos = 0.0f;
 static float previous_error = 0.0f;
-static float integral = 0.0f;
-static const float VREF = 3.3f; //reference voltage for hall sensor
+static volatile float integral = 0.0f; //TODO should this be volatile ?
+// static const float VREF = 3.3f; //reference voltage for hall sensor
 static const float dt = 2 / 1000.0f; //loop time in seconds
 //task config
 static TaskHandle_t controllerTaskHandle = nullptr;
@@ -25,11 +25,12 @@ volatile int ctrl_pwm = 0;
 volatile float current_position = 0.0f;
 
 
-//pid 
+//pid controller
 //** Takes in target voltage for hall sensor
 //return pwm control value -255 to 255
+//target and current are VOLTAGES 
 static void set_pwm(void){
-    float error = target_pos - current_position;
+    float error =  current_position-target_pos;
     integral += error * dt; //integral intime = loop delay 2ms
     float derivative = (error - previous_error) / dt;
     previous_error = error;
