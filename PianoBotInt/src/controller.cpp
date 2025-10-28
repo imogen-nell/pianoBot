@@ -79,7 +79,10 @@ void init_controller(float kp, float ki, float kd){
 }
 
 
-//sets target position for controller
-void set_target(float newTarget) {
-    target_pos = newTarget; 
+//sets target voltage (position) for controller
+void set_target(float target_PWM) {
+    //convert pwm to voltage 
+    float m = -255.0f/0.56f;
+    float b = 255.0f * ( 1 + 1.0f/0.56f);
+    target_pos = target_PWM * m + b ; 
 }
