@@ -4,8 +4,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 //system vals
-const float PRESSED = 1.8f;
-const float RELEASED = 0.2f;
+const float PRESSED = 1.81f;
+const float RELEASED = 1.08f;
 
 //pid vals
 static float Kp = 0.0f;
@@ -14,7 +14,7 @@ static float Kd = 0.0f;
 
 
 //controller state only accessed by controller task
-static volatile float target_pos = 0.0f;
+static float target_pos = 0.0f;
 static float previous_error = 0.0f;
 // static  float previous_position = 0.0f;
 static  float integral = 0.0f; 
@@ -34,15 +34,19 @@ volatile float current_position = 0.0f;
 //target and current are VOLTAGES 
 static void set_pwm(void){
     float error =  target_pos-current_position;
-    integral += error * dt; //integral intime = loop delay 2ms
+    integral +=   error * dt; //integral intime = loop delay 2ms
     float derivative = (error - previous_error) / dt;
     previous_error = error;
+    //clamp integral
+    integral = ((integral)<(-0.5f)?(-0.5f):((integral)>(0.5f)?(0.5f):(integral)));
 
     float output = Kp * error + Ki * integral + Kd * derivative;
-    //clamp
+    //clamp integral error 
+
+
+    //clamp ing
     output = ((output)<(-1.0f)?(-1.0f):((output)>(1.0f)?(1.0f):(output)));
     ctrl_pwm = (int) (output * 255);
-
 }
 
 //controller task
@@ -51,8 +55,6 @@ static void controllerTask(void* pvParameters){
     while(1){
         
         set_pwm();
-        //set actuator command
-
         vTaskDelay(2 / portTICK_PERIOD_MS);
     }
 }
@@ -85,6 +87,7 @@ void init_controller(float kp, float ki, float kd){
 void set_target(float target_PWM) {
     //convert pwm to voltage 
     float m = (PRESSED-RELEASED)/255.0f;
-    float b = RELEASED;
-    target_pos = target_PWM * m + b ; 
+    target_pos = target_PWM * m + RELEASED ; 
+    Serial.printf("CTRL,%lu,%.4f\n", millis(),target_pos);
+
 }
