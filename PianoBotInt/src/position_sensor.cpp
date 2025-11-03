@@ -13,7 +13,7 @@ static TaskHandle_t hallReadTaskHandle = nullptr;//rtos task handle
 
 
 
-//read hall sensor and update current_position
+//read hall sensor and update current_position to current hall voltage output 
 void hallReadTask(void* parameter){
     //TODO: convert voltage to position (mm) 
     while(1) {
@@ -23,7 +23,7 @@ void hallReadTask(void* parameter){
 
         //send to laptop for logging
         Serial.printf("Hall,%lu,%.4f\n", millis(), current_position);
-        vTaskDelay(2 / portTICK_PERIOD_MS); 
+        vTaskDelay(1 / portTICK_PERIOD_MS); 
     }
 }
 

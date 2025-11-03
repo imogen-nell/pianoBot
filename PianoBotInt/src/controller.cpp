@@ -3,7 +3,9 @@
 #include "position_actuator.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
+//system vals
+const float PRESSED = 1.8f;
+const float RELEASED = 0.2f;
 
 //pid vals
 static float Kp = 0.0f;
@@ -14,9 +16,10 @@ static float Kd = 0.0f;
 //controller state only accessed by controller task
 static volatile float target_pos = 0.0f;
 static float previous_error = 0.0f;
-static volatile float integral = 0.0f; //TODO should this be volatile ?
+// static  float previous_position = 0.0f;
+static  float integral = 0.0f; 
 // static const float VREF = 3.3f; //reference voltage for hall sensor
-static const float dt = 2 / 1000.0f; //loop time in seconds
+static const float dt = 0.002f; //loop time in seconds
 //task config
 static TaskHandle_t controllerTaskHandle = nullptr;
 
@@ -30,7 +33,7 @@ volatile float current_position = 0.0f;
 //return pwm control value -255 to 255
 //target and current are VOLTAGES 
 static void set_pwm(void){
-    float error =  current_position-target_pos;
+    float error =  target_pos-current_position;
     integral += error * dt; //integral intime = loop delay 2ms
     float derivative = (error - previous_error) / dt;
     previous_error = error;
@@ -39,7 +42,6 @@ static void set_pwm(void){
     //clamp
     output = ((output)<(-1.0f)?(-1.0f):((output)>(1.0f)?(1.0f):(output)));
     ctrl_pwm = (int) (output * 255);
-    // Serial.printf("CTRL,%lu,%d\n", millis(),ctrl_pwm);
 
 }
 
@@ -82,7 +84,7 @@ void init_controller(float kp, float ki, float kd){
 //sets target voltage (position) for controller
 void set_target(float target_PWM) {
     //convert pwm to voltage 
-    float m = -255.0f/0.56f;
-    float b = 255.0f * ( 1 + 1.0f/0.56f);
+    float m = (PRESSED-RELEASED)/255.0f;
+    float b = RELEASED;
     target_pos = target_PWM * m + b ; 
 }

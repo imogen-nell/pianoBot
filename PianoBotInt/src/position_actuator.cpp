@@ -20,9 +20,9 @@ static TaskHandle_t actuatorTaskHandle = nullptr;
 void actuatorTask(void* params){ //FreeRTOS mus return void  & accept single arg
     while(1){
         //ctrl_pwm shared variable, set by controller
-        bool dir = ctrl_pwm >= 0;
+        bool dir = ctrl_pwm <= 0; 
         digitalWrite(DIR_PIN, dir); // Set direction
-        analogWrite(PWM_PIN, ctrl_pwm); // Set PWM value
+        analogWrite(PWM_PIN, abs(ctrl_pwm)); // Set PWM value
         Serial.printf("PID,%lu,%d\n", millis(), ctrl_pwm);
         vTaskDelay(2 / portTICK_PERIOD_MS); // run every 2 ms
     }
