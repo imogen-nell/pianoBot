@@ -22,6 +22,6 @@ void play_song_ol(int *note_array, int size){
         digitalWrite(DIR_PIN, dir); // Set direction
         analogWrite(PWM_PIN, abs(ctrl_pwm)); // Set PWM value
         Serial.printf("CTRL,%lu,%d\n", millis(), ctrl_pwm);
-        vTaskDelay(10 / portTICK_PERIOD_MS); // 10ms delay
+        vTaskDelay(5 / portTICK_PERIOD_MS); // 10ms delay
     }
 }
