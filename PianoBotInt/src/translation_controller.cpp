@@ -5,16 +5,19 @@
 
 //task config
 static TaskHandle_t t_controllerTaskHandle = nullptr;
+static TaskHandle_t t_limitCheckTaskHandle = nullptr;
 
 //esp32 pins
 static const int STEP_PIN = 25;
 static const int DIR_PIN  = 26;
 const int HOME_SWITCH_PIN = 27; 
-
+//const int RIGHT_LIMIT_PIN = 14; //not used yet
 
 //global
 static bool dirr = true;
-static float currentPosition = 0.0f;
+static int currentKey = 0;
+static bool hit_limit = false;
+static bool running = false;
 
 //home to far left end 
 static void home_stepper(){
@@ -27,53 +30,77 @@ static void home_stepper(){
     //move left until button 
     while (!homed) {
         digitalWrite(STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(1000)); 
+        vTaskDelay(pdMS_TO_TICKS(40));    
         digitalWrite(STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(1000)); 
+        vTaskDelay(pdMS_TO_TICKS(40)); 
         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
-            delay(10); // small delay to filter bounce
+            delay(5); // small delay to filter bounce
             if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
                 homed = true;
-                Serial.println("--------------homing complete--------------"); // <-- print when homed
-
-
+                running =true;
+                currentKey = 0; //reset position
             }
         }
     }
-
 }
+
+static void move_right(int steps){
+    digitalWrite(DIR_PIN, false); //false = right
+    for(int i =0; i<steps; i++){
+        digitalWrite(STEP_PIN, HIGH);
+        vTaskDelay(pdMS_TO_TICKS(50));    
+        digitalWrite(STEP_PIN, LOW);
+        vTaskDelay(pdMS_TO_TICKS(50));    
+    }
+}
+
+// static void move_left(int steps){
+//     digitalWrite(DIR_PIN, true); //true = left
+//     for(int i =0; i<steps; i++){
+//         digitalWrite(STEP_PIN, HIGH);
+//         vTaskDelay(pdMS_TO_TICKS(700));    
+//         digitalWrite(STEP_PIN, LOW);
+//         vTaskDelay(pdMS_TO_TICKS(700));    
+//     }
+// }
+
+// static void stop_stepper(){
+//     //TODO implement stop function
+//     //send 0 PWM to stepper driver
+//     running = false;
+//     digitalWrite(STEP_PIN, LOW);
+//     vTaskDelay(pdMS_TO_TICKS(2500)); 
+// } 
+
+//limit checking - stay in bounds 
+// static void t_limitCheckTask(void* params){
+//     //check left limit
+//     if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
+//         delay(10); // small delay to filter bounce
+//         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
+//             Serial.println("--------------hit limit--------------"); // <-- print when homed
+//             stop_stepper();
+//             move_right(50);
+//             // home_stepper();
+//         }
+//     }
+//     vTaskDelay(pdMS_TO_TICKS(20)); //yield CPU properly
+    
+// }
 
 //stepper task 
 static void t_controllerTask(void* params){
-    digitalWrite(DIR_PIN, false); //false = right
+    Serial.println("------------------running ------------------");
+    while(1){   
+        digitalWrite(DIR_PIN, true); //false = right
 
-    for(int i =0; i<2500; i++){
-        digitalWrite(STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(700));    
-        digitalWrite(STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(700));    
-    }
-
-    while(1){
-        vTaskDelay(pdMS_TO_TICKS(250)); 
-    }
-
-    while(1){
-        digitalWrite(DIR_PIN, false); //false = right
-        // digitalWrite(DIR_PIN, !dirr);
-        vTaskDelay(pdMS_TO_TICKS(250)); 
-
-        for(int i =0; i<200; i++){
+        for(int i =0; i<2500; i++){
             digitalWrite(STEP_PIN, HIGH);
-            vTaskDelay(pdMS_TO_TICKS(700)); 
+            vTaskDelay(pdMS_TO_TICKS(40));    
             digitalWrite(STEP_PIN, LOW);
-            vTaskDelay(pdMS_TO_TICKS(700));    
+            vTaskDelay(pdMS_TO_TICKS(40));    
         }
-
-        dirr = true; // reset direction
-        
-        vTaskDelay(pdMS_TO_TICKS(250)); // yield CPU properly
-    }
+    };
 }
 
 //init stepper motor controller
@@ -81,24 +108,35 @@ void init_t_ctrl(){
     //initialize pins for stepper motor
     pinMode(STEP_PIN, OUTPUT);
     pinMode(DIR_PIN, OUTPUT);
-
     //homing button
     pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN);
     Serial.println("------------------homing------------------"); // <-- print when homed
 
+    // //begin homing
     home_stepper();
+    Serial.println("------------------homing done ------------------");
+    // move_right(20);
+    //begin background limit checking task
+    // xTaskCreatePinnedToCore(
+    //     t_limitCheckTask,          /* Task function. */
+    //     "Limit Check Task",       /* name of task. */
+    //     2048,                    /* Stack size of task */
+    //     NULL,                    /* parameter of the task */
+    //     3,                       /* priority of the task */
+    //     &t_limitCheckTaskHandle,   /* Task handle to keep track of created task */
+    //     1);      //CORE 1
 
 
 
-    //create controller task
-    xTaskCreatePinnedToCore(
-        t_controllerTask,          /* Task function. */
-        "Controller Task",       /* name of task. */
-        4096,                    /* Stack size of task */
-        NULL,                    /* parameter of the task */
-        2,                       /* priority of the task */
-        &t_controllerTaskHandle,   /* Task handle to keep track of created task */
-        0);      //CORE 0
+    // create controller task
+    // xTaskCreatePinnedToCore(
+    //     t_controllerTask,          /* Task function. */
+    //     "Controller Task",       /* name of task. */
+    //     4096,                    /* Stack size of task */
+    //     NULL,                    /* parameter of the task */
+    //     2,                       /* priority of the task */
+    //     &t_controllerTaskHandle,   /* Task handle to keep track of created task */
+    //     0);      //CORE 0
 
 }
 
