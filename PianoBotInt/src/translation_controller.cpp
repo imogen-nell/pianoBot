@@ -144,6 +144,6 @@ void init_t_ctrl(){
 
     //run test
     back_and_forth_test(DIR_PIN, STEP_PIN);
-
+    //max_speed_test(DIR_PIN, STEP_PIN);
 }
 
