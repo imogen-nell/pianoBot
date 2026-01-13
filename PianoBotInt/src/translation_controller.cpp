@@ -2,7 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "t_controller.h"
-
+#include "stepper_tests.h"
 //task config
 static TaskHandle_t t_controllerTaskHandle = nullptr;
 static TaskHandle_t t_limitCheckTaskHandle = nullptr;
@@ -91,15 +91,18 @@ static void move_right(int steps){
 //stepper task 
 static void t_controllerTask(void* params){
     Serial.println("------------------running ------------------");
+    bool dirr = true;
     while(1){   
-        digitalWrite(DIR_PIN, true); //false = right
+        digitalWrite(DIR_PIN, dirr); //false = right
 
-        for(int i =0; i<2500; i++){
+        for(int i =0; i<250; i++){
             digitalWrite(STEP_PIN, HIGH);
-            vTaskDelay(pdMS_TO_TICKS(40));    
+            vTaskDelay(pdMS_TO_TICKS(2));    
             digitalWrite(STEP_PIN, LOW);
-            vTaskDelay(pdMS_TO_TICKS(40));    
+            vTaskDelay(pdMS_TO_TICKS(2));    
         }
+        dirr = !dirr; //reverse direction
+        vTaskDelay(pdMS_TO_TICKS(70));
     };
 }
 
@@ -110,11 +113,11 @@ void init_t_ctrl(){
     pinMode(DIR_PIN, OUTPUT);
     //homing button
     pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN);
-    Serial.println("------------------homing------------------"); // <-- print when homed
 
     // //begin homing
-    home_stepper();
-    Serial.println("------------------homing done ------------------");
+    // Serial.println("------------------homing------------------"); // <-- print when homed
+    // home_stepper();
+    // Serial.println("------------------homing done ------------------");
     // move_right(20);
     //begin background limit checking task
     // xTaskCreatePinnedToCore(
@@ -128,7 +131,7 @@ void init_t_ctrl(){
 
 
 
-    // create controller task
+    // // create controller task
     // xTaskCreatePinnedToCore(
     //     t_controllerTask,          /* Task function. */
     //     "Controller Task",       /* name of task. */
@@ -137,6 +140,10 @@ void init_t_ctrl(){
     //     2,                       /* priority of the task */
     //     &t_controllerTaskHandle,   /* Task handle to keep track of created task */
     //     0);      //CORE 0
+
+
+    //run test
+    back_and_forth_test(DIR_PIN, STEP_PIN);
 
 }
 
