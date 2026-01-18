@@ -9,11 +9,11 @@ static constexpr float ADC_MAX = 4095.0f;  // 12-bit ADC
 static constexpr float VREF = 3.3f;  //  
 static const int HALL_PIN = 35;  //ADC1_7 GPIO35
 
-static TaskHandle_t hallReadTaskHandle = nullptr;//rtos task handle
+static TaskHandle_t hallReadTaskHandle = nullptr;
 
 
 
-//read hall sensor and update current_position to current hall voltage output 
+//read hall sensor and update current_position
 void hallReadTask(void* parameter){
     //TODO: convert voltage to position (mm) 
     while(1) {

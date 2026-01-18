@@ -3,6 +3,9 @@
 #include "open_loop_controller.h"
 #include "t_controller.h"
 #include <cstdlib> // Required for integer abs()
+#include "freertos/semphr.h"
+#include "global.h"
+#include <list>
 
 
 //hot cross buns
@@ -17,58 +20,35 @@
 // float target_voltage = 1.5f; // initial target in volts
 //key positions (voltages for now)
 
-//closed loop song player
-void play_song(int *note_array, int size ){ //using PID
-  //send position every 10ms to controller
-  for (int i = 0; i < size; i++) {
-    set_target(note_array[i]);
-    vTaskDelay(pdMS_TO_TICKS(10)); // delay 10 ms, lets other tasks run
-  }
-  // set_target(0);
-}
+int song_t[20] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
+//key/position to play each note
+int keys_t[3] = {1, 3, 4};
 
-//closed loop 
-void hold_and_release(float hold_time, float relase_time){
-  while(1){
-    //release
-    float timer_start = millis() / 1000.0f;
-    while (millis() / 1000.0f - timer_start < relase_time) {
-      set_target(0);
-    }
-
-    //hold
-    timer_start = millis() / 1000.0f;
-    while (millis() / 1000.0f - timer_start < hold_time) {
-      set_target(255);
-    }
-  }
-  
-}
+//mutex to ensure we do not try to play keys while moving 
+SemaphoreHandle_t ctrl_Mutex = xSemaphoreCreateMutex();
 
 void setup() {
   Serial.begin(115200);
 
-  //init closed loop controller##########################################
-  // float p = 0.5f;
-  // float i = 0.1f;
-  // float d = 0.005f;
-  // init_controller(p, i, d);
+  // handle ctrlr mutex allocation failure
+  if (ctrl_Mutex == nullptr) {
+    Serial.println("Failed to create mutex!");
+    while (1);
+  }
 
-  //init open loop control of key playing####################
-  // init_ol();
+  //set song and corresponding key positons
+  // notes = song_t; //let notes point to correct song array
+  // key_positions = keys_t; //let key_positions point to correct key position array
+  
+  //intialise stepper and move to first position
+  // init_t_ctrl();
 
-  init_t_ctrl();
-
-
+  //initialise voice coil controller for key playing with kp ki kd values 
+  init_controller(0.5f, 0.1f, 0.005f);
 
 }  
+
 void loop() {
-  //open loop song play
-  // play_song_ol(release_test, release_size);
-
-  //closed loop song play 
-  // play_song(release_test, release_size);
-  // hold_and_release(5.0, 5.0);
   
-
 }
+

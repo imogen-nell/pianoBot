@@ -3,6 +3,8 @@
 #include "freertos/task.h"
 #include "t_controller.h"
 #include "stepper_tests.h"
+#include "global.h"
+
 //task config
 static TaskHandle_t t_controllerTaskHandle = nullptr;
 static TaskHandle_t t_limitCheckTaskHandle = nullptr;
@@ -11,68 +13,62 @@ static TaskHandle_t t_limitCheckTaskHandle = nullptr;
 static const int STEP_PIN = 25;
 static const int DIR_PIN  = 26;
 const int HOME_SWITCH_PIN = 27; 
+
 //const int RIGHT_LIMIT_PIN = 14; //not used yet
+#define MAX_KEYS 8
 
 //global
 static bool dirr = true;
 static int currentKey = 0;
 static bool hit_limit = false;
-static bool running = false;
+
+
+
+
+enum direction {RIGHT,LEFT};
 
 //home to far left end 
 static void home_stepper(){
     pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN); // safe pull-down
 
-    digitalWrite(DIR_PIN, true); //set direction to left
+    digitalWrite(DIR_PIN, direction::LEFT); 
     vTaskDelay(pdMS_TO_TICKS(20)); 
 
     bool homed = false; // false = left 
     //move left until button 
     while (!homed) {
         digitalWrite(STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(40));    
+        vTaskDelay(pdMS_TO_TICKS(4));    
         digitalWrite(STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(40)); 
+        vTaskDelay(pdMS_TO_TICKS(4)); 
         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
             delay(5); // small delay to filter bounce
             if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
                 homed = true;
-                running =true;
                 currentKey = 0; //reset position
             }
         }
     }
 }
 
-static void move_right(int steps){
-    digitalWrite(DIR_PIN, false); //false = right
+static void move_steps(int steps, direction dirr){
+    digitalWrite(DIR_PIN, dirr); //false = right
     for(int i =0; i<steps; i++){
         digitalWrite(STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(50));    
+        vTaskDelay(pdMS_TO_TICKS(4));    
         digitalWrite(STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(50));    
+        vTaskDelay(pdMS_TO_TICKS(4));    
     }
 }
-
-// static void move_left(int steps){
-//     digitalWrite(DIR_PIN, true); //true = left
-//     for(int i =0; i<steps; i++){
-//         digitalWrite(STEP_PIN, HIGH);
-//         vTaskDelay(pdMS_TO_TICKS(700));    
-//         digitalWrite(STEP_PIN, LOW);
-//         vTaskDelay(pdMS_TO_TICKS(700));    
-//     }
-// }
 
 // static void stop_stepper(){
 //     //TODO implement stop function
 //     //send 0 PWM to stepper driver
-//     running = false;
 //     digitalWrite(STEP_PIN, LOW);
 //     vTaskDelay(pdMS_TO_TICKS(2500)); 
 // } 
 
-//limit checking - stay in bounds 
+// // limit checking - stay in bounds 
 // static void t_limitCheckTask(void* params){
 //     //check left limit
 //     if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
@@ -80,30 +76,51 @@ static void move_right(int steps){
 //         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
 //             Serial.println("--------------hit limit--------------"); // <-- print when homed
 //             stop_stepper();
-//             move_right(50);
-//             // home_stepper();
+//             move_steps(50, direction::RIGHT); //move off button
+            
+//             // re initialise current key 
+//             currentKey = 0;
 //         }
 //     }
-//     vTaskDelay(pdMS_TO_TICKS(20)); //yield CPU properly
+//     vTaskDelay(pdMS_TO_TICKS(10)); //yield CPU properly
     
 // }
 
-//stepper task 
+// //stepper task to move to target positions
 static void t_controllerTask(void* params){
-    Serial.println("------------------running ------------------");
-    bool dirr = true;
-    while(1){   
-        digitalWrite(DIR_PIN, dirr); //false = right
+    //get next key (position) if next key = none
+    while(1){
+        Serial.println("-------------- WAITING FOR MUTEX ---------------");
+        if (xSemaphoreTake(ctrl_Mutex, portMAX_DELAY)) { //maxdeley is wait time fo rmutex 
+            //update global state variables
 
-        for(int i =0; i<250; i++){
-            digitalWrite(STEP_PIN, HIGH);
-            vTaskDelay(pdMS_TO_TICKS(2));    
-            digitalWrite(STEP_PIN, LOW);
-            vTaskDelay(pdMS_TO_TICKS(2));    
+
+            // load next key 
+            Serial.println("-------------- MOVING STEPS ---------------");
+            move_steps(20, direction::RIGHT);
+            currentKey++;
+            Serial.print("Current Key Position: ");
+            Serial.println(currentKey);
+            
+
+            
+
+            
+            //release mutex
+            xSemaphoreGive(ctrl_Mutex);
+
         }
-        dirr = !dirr; //reverse direction
-        vTaskDelay(pdMS_TO_TICKS(70));
-    };
+        
+        if(currentKey > MAX_KEYS){
+                //home again 
+                home_stepper();
+            }
+
+        // wait for key to play
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+    
 }
 
 //init stepper motor controller
@@ -111,15 +128,17 @@ void init_t_ctrl(){
     //initialize pins for stepper motor
     pinMode(STEP_PIN, OUTPUT);
     pinMode(DIR_PIN, OUTPUT);
-    //homing button
     pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN);
+    //stepper should have the mutex to start 
+    // xSemaphoreTake(motorMutex, portMAX_DELAY);
 
-    // //begin homing
-    // Serial.println("------------------homing------------------"); // <-- print when homed
-    // home_stepper();
-    // Serial.println("------------------homing done ------------------");
-    // move_right(20);
-    //begin background limit checking task
+    //begin homing
+    Serial.println("----------------- homing -----------------"); 
+    home_stepper();
+    Serial.println("-------------- homing done ---------------");
+
+
+    // begin background limit checking task TODO: how to ovveride current task - should only hit button if stepper has mutex 
     // xTaskCreatePinnedToCore(
     //     t_limitCheckTask,          /* Task function. */
     //     "Limit Check Task",       /* name of task. */
@@ -129,21 +148,17 @@ void init_t_ctrl(){
     //     &t_limitCheckTaskHandle,   /* Task handle to keep track of created task */
     //     1);      //CORE 1
 
+    // create main controller task which takes care of moving to positions
+    Serial.println("-------------- TASK START ---------------");
+    xTaskCreatePinnedToCore(
+        t_controllerTask,          /* Task function. */
+        "Controller Task",       /* name of task. */
+        4096,                    /* Stack size of task */
+        NULL,                    /* parameter of the task */
+        2,                       /* priority of the task */
+        &t_controllerTaskHandle,   /* Task handle to keep track of created task */
+        0);      //CORE 0
 
-
-    // // create controller task
-    // xTaskCreatePinnedToCore(
-    //     t_controllerTask,          /* Task function. */
-    //     "Controller Task",       /* name of task. */
-    //     4096,                    /* Stack size of task */
-    //     NULL,                    /* parameter of the task */
-    //     2,                       /* priority of the task */
-    //     &t_controllerTaskHandle,   /* Task handle to keep track of created task */
-    //     0);      //CORE 0
-
-
-    //run test
-    back_and_forth_test(DIR_PIN, STEP_PIN);
 
 }
 
