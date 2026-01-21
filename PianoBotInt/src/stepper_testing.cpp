@@ -53,3 +53,10 @@ void max_speed_test(int DIR_PIN, int STEP_PIN){
         delay(5000);
     }
 }
+
+void missed_step_test(int DIR_PIN, int STEP_PIN){
+    // proceed for 1000 steps at various speeds
+    Serial.println("-----Missed Step Testing ----");
+
+
+}
