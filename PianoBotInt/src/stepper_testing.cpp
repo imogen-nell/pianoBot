@@ -33,7 +33,7 @@ void stepper_setup(int DIR_PIN, int STEP_PIN){
 
     int vstep = (int) (vmax*spm); // max velocity in steps per sec
     int acc_step = (int) (acc*spm); // acc in steps per sec^2
-    int dist_step = (int) (dist*spm); // distance travel in steps
+    int dist_step = (int) (dist*spm); // distance travel in steps //try 400 steps instead
 
     delay(5000);
     stepper.setMaxSpeed(vstep);

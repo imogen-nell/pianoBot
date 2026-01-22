@@ -127,16 +127,16 @@ static void t_controllerTask(void* params){
 //init stepper motor controller
 void init_t_ctrl(){
     //initialize pins for stepper motor
-    pinMode(STEP_PIN, OUTPUT);
-    pinMode(DIR_PIN, OUTPUT);
-    pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN);
-    //stepper should have the mutex to start 
-    // xSemaphoreTake(motorMutex, portMAX_DELAY);
+    // pinMode(STEP_PIN, OUTPUT);
+    // pinMode(DIR_PIN, OUTPUT);
+    // pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN);
+    // //stepper should have the mutex to start 
+    // // xSemaphoreTake(motorMutex, portMAX_DELAY);
 
-    //begin homing
-    Serial.println("----------------- homing -----------------"); 
-    home_stepper();
-    Serial.println("-------------- homing done ---------------");
+    // //begin homing
+    // Serial.println("----------------- homing -----------------"); 
+    // home_stepper();
+    // Serial.println("-------------- homing done ---------------");
 
 
     // begin background limit checking task TODO: how to ovveride current task - should only hit button if stepper has mutex 
@@ -150,16 +150,22 @@ void init_t_ctrl(){
     //     1);      //CORE 1
 
     // create main controller task which takes care of moving to positions
-    Serial.println("-------------- TASK START ---------------");
-    xTaskCreatePinnedToCore(
-        t_controllerTask,          /* Task function. */
-        "Controller Task",       /* name of task. */
-        4096,                    /* Stack size of task */
-        NULL,                    /* parameter of the task */
-        2,                       /* priority of the task */
-        &t_controllerTaskHandle,   /* Task handle to keep track of created task */
-        0);      //CORE 0
+    // Serial.println("-------------- TASK START ---------------");
+    // xTaskCreatePinnedToCore(
+    //     t_controllerTask,          /* Task function. */
+    //     "Controller Task",       /* name of task. */
+    //     4096,                    /* Stack size of task */
+    //     NULL,                    /* parameter of the task */
+    //     2,                       /* priority of the task */
+    //     &t_controllerTaskHandle,   /* Task handle to keep track of created task */
+    //     0);      //CORE 0
 
+    stepper_setup(DIR_PIN, STEP_PIN);
 
+}
+
+void update(){
+    stepper_debug();
+    stepper_run(DIR_PIN, STEP_PIN);
 }
 
