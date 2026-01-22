@@ -1,8 +1,10 @@
 #include <Arduino.h>
+#include <AccelStepper.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "t_controller.h"
 #include "stepper_tests.h"
+
 //task config
 static TaskHandle_t t_controllerTaskHandle = nullptr;
 static TaskHandle_t t_limitCheckTaskHandle = nullptr;
@@ -143,33 +145,14 @@ void init_t_ctrl(){
 
 
     //run test
-    back_and_forth_test(DIR_PIN, STEP_PIN);
-    //max_speed_test(DIR_PIN, STEP_PIN);
+    // back_and_forth_test(DIR_PIN, STEP_PIN);
+    // max_speed_test(DIR_PIN, STEP_PIN);
     //missed_step_test(DIR_PIN, STEP_PIN);
-    
+    stepper_setup(DIR_PIN, STEP_PIN);
 }
 
-// Define motor interface type (1 = driver with STEP/DIR pins)
-AccelStepper stepper(1, STEP_PIN, DIR_PIN);
-
-void stepper_setup() {
-    const double r = 0.0175; // pulley radius
-    const double vmax = 0.95; // desired velocity
-    const double acc = 20.0; // desired acceleration
-    double spm = 200/(2*PI*r); // steps per meter (whole step)
-    double dist = 2*PI*r*2; // total distance travel = 2rev
-
-    int vstep = (int) vmax*spm; // max velocity in steps per sec
-    int acc_step = (int) acc*spm; // acc in steps per sec^2
-    int dist_step = (int) dist*spm; // distance travel in steps
-
-    stepper.setMaxSpeed(vstep);
-    stepper.setAcceleration(acc_step);
-
-    stepper.moveTo(dist_step); // move 
-}
-
-void stepper_run() {
-    stepper.run();         // This must be called as often as possible!
+void update(){
+    stepper_debug();
+    stepper_run(DIR_PIN, STEP_PIN);
 }
 

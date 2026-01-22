@@ -1,7 +1,11 @@
 #include <Arduino.h>
+#include <AccelStepper.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "stepper_tests.h"
 
+// Define motor interface type (1 = driver with STEP/DIR pins)
+AccelStepper stepper(1, 25, 26);
 
 void back_and_forth_test(int DIR_PIN, int STEP_PIN){
     Serial.println("------------------back and for test ------------------");
@@ -19,6 +23,49 @@ void back_and_forth_test(int DIR_PIN, int STEP_PIN){
         vTaskDelay(pdMS_TO_TICKS(70));
     };
 }
+
+void stepper_setup(int DIR_PIN, int STEP_PIN){
+    const double r = 0.0175; // pulley radius [m]
+    const double vmax = 0.549779; // desired velocity [m/s] (300rpm)
+    const double acc = 0.05; // desired acceleration [m/s^2]
+    double spm = 200/(2*PI*r); // steps per meter (whole step)
+    double dist = 3*PI*r*2; // total distance travel = 3rev
+
+    int vstep = (int) (vmax*spm); // max velocity in steps per sec
+    int acc_step = (int) (acc*spm); // acc in steps per sec^2
+    int dist_step = (int) (dist*spm); // distance travel in steps
+
+    delay(5000);
+    stepper.setMaxSpeed(vstep);
+    stepper.setAcceleration(acc_step);
+
+    Serial.println("-----stepper setup-----");
+    stepper.moveTo(dist_step); // move 
+}
+void stepper_debug() {
+    Serial.print("Current pos: ");
+    Serial.println(stepper.currentPosition());
+
+    Serial.print("Target pos: ");
+    Serial.println(stepper.targetPosition());
+
+    Serial.print("Distance to go: ");
+    Serial.println(stepper.distanceToGo());
+
+    Serial.print("Max speed: ");
+    Serial.println(stepper.maxSpeed());
+
+    Serial.print("Acceleration: ");
+    Serial.println(stepper.acceleration());
+}
+
+
+void stepper_run(int DIR_PIN, int STEP_PIN) {
+    stepper.run();
+    Serial.println("----moved----");
+    
+}
+
 
 void max_speed_test(int DIR_PIN, int STEP_PIN){
     Serial.println("-----Max speed testing----");

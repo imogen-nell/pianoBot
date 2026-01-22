@@ -3,6 +3,8 @@
 #include "open_loop_controller.h"
 #include "t_controller.h"
 #include <cstdlib> // Required for integer abs()
+# include <AccelStepper.h>
+# include "stepper_tests.h"
 
 
 //hot cross buns
@@ -56,10 +58,9 @@ void setup() {
 
   //init open loop control of key playing####################
   // init_ol();
-
+  //print start 
+  Serial.println("----init----");
   init_t_ctrl();
-
-
 
 }  
 void loop() {
@@ -69,6 +70,7 @@ void loop() {
   //closed loop song play 
   // play_song(release_test, release_size);
   // hold_and_release(5.0, 5.0);
-  
+  // Serial.println("---looping---");
+  update();
 
 }
