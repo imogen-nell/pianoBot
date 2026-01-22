@@ -7,22 +7,23 @@
 //calibration constants
 static constexpr float ADC_MAX = 4095.0f;  // 12-bit ADC
 static constexpr float VREF = 3.3f;  //  
-static const int HALL_PIN = 35;  //ADC1_7 GPIO35
+static const int HALL_PIN = 32; // was 35 in old iteration  
 
+//task handle
 static TaskHandle_t hallReadTaskHandle = nullptr;
 
 
-
-//read hall sensor and update current_position
+//reads hall sensor and update current_position
 void hallReadTask(void* parameter){
     //TODO: convert voltage to position (mm) 
     while(1) {
-        //set current position
+        //set current position/voltage
         int adc_value = analogRead(HALL_PIN);
         current_position = (float) (adc_value / ADC_MAX) * VREF;
 
-        //send to laptop for logging
-        Serial.printf("Hall,%lu,%.4f\n", millis(), current_position);
+        //data logging
+        // Serial.printf("Hall,%lu,%.4f\n", millis(), current_position);
+        //loop period 1ms
         vTaskDelay(1 / portTICK_PERIOD_MS); 
     }
 }
@@ -31,11 +32,12 @@ void init_sensor( ){
     analogReadResolution(12); // ESP32 default
     // no need to set pinMode for analog input on esp32
 
+    //begin vertical position read task
     xTaskCreatePinnedToCore(
         hallReadTask,
         "hallReadTask",
         4096, //stack size, 4kB
-        NULL, //params
+        NULL,
         2, // high priority
         &hallReadTaskHandle, //task handle
         1 //2 cores 0,1 

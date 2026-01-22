@@ -9,118 +9,153 @@
 static TaskHandle_t t_controllerTaskHandle = nullptr;
 static TaskHandle_t t_limitCheckTaskHandle = nullptr;
 
-//esp32 pins
+//esp32 pins allocated to stepper
 static const int STEP_PIN = 25;
 static const int DIR_PIN  = 26;
 const int HOME_SWITCH_PIN = 27; 
 
-//const int RIGHT_LIMIT_PIN = 14; //not used yet
-#define MAX_KEYS 8
+//number of keys reachable by finger
+#define MAX_KEYS 13
+#define STEPS_PER_KEY 54 
 
-//global
-static bool dirr = true;
-static int currentKey = 0;
+//current key position
+static int current_key = 0;
+
+//limit hit flag
 static bool hit_limit = false;
 
-
-
-
+//pwm direction values
 enum direction {RIGHT,LEFT};
 
-//home to far left end 
-static void home_stepper(){
-    pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN); // safe pull-down
-
+//home to leftmost key 
+static void home_stepper(int step_time = 4){
+    //home left
     digitalWrite(DIR_PIN, direction::LEFT); 
-    vTaskDelay(pdMS_TO_TICKS(20)); 
+    vTaskDelay(pdMS_TO_TICKS(5)); 
 
-    bool homed = false; // false = left 
-    //move left until button 
-    while (!homed) {
+    //move left until home switch is hit
+    while (1) {
         digitalWrite(STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(4));    
+        vTaskDelay(pdMS_TO_TICKS(step_time));    
         digitalWrite(STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(4)); 
+        vTaskDelay(pdMS_TO_TICKS(step_time)); 
+
         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
-            delay(5); // small delay to filter bounce
+            delay(2); // small delay to filter bounce
             if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
-                homed = true;
-                currentKey = 0; //reset position
+                current_key = 0; //reset position
+                return;
             }
         }
     }
 }
 
-static void move_steps(int steps, direction dirr){
-    digitalWrite(DIR_PIN, dirr); //false = right
+//moves stepper a number of steps in given direction and updates position
+//arguments: steps - number of steps to move
+//           dirr  - direction RIGHT/LEFT
+//           step_time - time between step in ms (default 4ms)
+static void move_steps(int steps, direction dirr, int step_time = 4){
+    //ensure move is in bounds
+    if(current_key + steps * ((dirr == direction::RIGHT) ? 1 : -1)/ STEPS_PER_KEY < 0 ||
+       current_key + steps * ((dirr == direction::RIGHT) ? 1 : -1)/ STEPS_PER_KEY > MAX_KEYS){
+        Serial.println("-------------- out of bounds move ---------------");
+        return;
+    }
+    //set motor dirrection
+    digitalWrite(DIR_PIN, dirr);
+    //move steps
     for(int i =0; i<steps; i++){
         digitalWrite(STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(4));    
+        vTaskDelay(pdMS_TO_TICKS(step_time));    
         digitalWrite(STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(4));    
+        vTaskDelay(pdMS_TO_TICKS(step_time));    
     }
+    //update current key position
+    current_key += steps * ((dirr == direction::RIGHT) ? 1 : -1) / STEPS_PER_KEY;
 }
 
-// static void stop_stepper(){
-//     //TODO implement stop function
-//     //send 0 PWM to stepper driver
-//     digitalWrite(STEP_PIN, LOW);
-//     vTaskDelay(pdMS_TO_TICKS(2500)); 
-// } 
+//moves stepper a number of keys in given direction
+//arguments: keys - number of keys to move
+//           dirr  - direction RIGHT/LEFT
+//           step_time - time between step in ms (default 4ms)
+static void move_keys(int keys, direction dirr, int step_time = 4){
+    //ensure move is in bounds
+    if(current_key + keys * ((dirr == direction::RIGHT) ? 1 : -1) < 0 ||
+       current_key + keys * ((dirr == direction::RIGHT) ? 1 : -1) > MAX_KEYS){
+        Serial.println("-------------- out of bounds move ---------------");
+        return;
+    }
+    //set motor dirrection
+    digitalWrite(DIR_PIN, dirr);
+    //move steps
+    for(int i =0; i<keys * STEPS_PER_KEY ; i++){
+        digitalWrite(STEP_PIN, HIGH);
+        vTaskDelay(pdMS_TO_TICKS(step_time));    
+        digitalWrite(STEP_PIN, LOW);
+        vTaskDelay(pdMS_TO_TICKS(step_time));    
+    }
+    //update current key position
+    current_key += keys * ((dirr == direction::RIGHT) ? 1 : -1);
+}
 
-// // limit checking - stay in bounds 
-// static void t_limitCheckTask(void* params){
-//     //check left limit
-//     if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
-//         delay(10); // small delay to filter bounce
-//         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
-//             Serial.println("--------------hit limit--------------"); // <-- print when homed
-//             stop_stepper();
-//             move_steps(50, direction::RIGHT); //move off button
-            
-//             // re initialise current key 
-//             currentKey = 0;
-//         }
-//     }
-//     vTaskDelay(pdMS_TO_TICKS(10)); //yield CPU properly
-    
-// }
+//stops stepper motor movementand waits 2s
+static void stop_motor(){
+    //send 0 PWM to stepper driver
+    digitalWrite(STEP_PIN, LOW);
+    vTaskDelay(pdMS_TO_TICKS(2000)); 
+} 
 
-// //stepper task to move to target positions
+// limit checking - stay in bounds 
+static void t_limitCheckTask(void* params){
+    //check left limit
+    if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
+        delay(5); // small delay to filter bounce
+        if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
+            Serial.println("--------------hit limit--------------");
+            stop_motor();
+            //update position to 0 for left limit hit 
+            current_key = 0;
+        }
+    }
+    vTaskDelay(pdMS_TO_TICKS(20)); 
+}
+
+//stepper task to move to target positions
 static void t_controllerTask(void* params){
-    //get next key (position) if next key = none
+    //for testing
+    direction dirr = direction::RIGHT;
     while(1){
-        Serial.println("-------------- WAITING FOR MUTEX ---------------");
-        if (xSemaphoreTake(ctrl_Mutex, portMAX_DELAY)) { //maxdeley is wait time fo rmutex 
-            //update global state variables
 
+        //get next key (position)
 
-            // load next key 
-            Serial.println("-------------- MOVING STEPS ---------------");
-            move_steps(20, direction::RIGHT);
-            currentKey++;
-            Serial.print("Current Key Position: ");
-            Serial.println(currentKey);
-            
+        if (xSemaphoreTake(ctrl_Mutex, portMAX_DELAY)) { //wait indefinetly until mutex is avilable
+            Serial.println("-------------- MOVE ---------------");
+            Serial.println("Key position: " + String(current_key));
 
-            
+            //move to next key
+            int next_key = *key_positions;
 
-            
+            int key_diff = next_key - current_key;
+            if(key_diff > 0){
+                dirr = direction::RIGHT;
+            } else {
+                dirr = direction::LEFT;
+            }
+            move_keys(abs(key_diff), dirr);
+            //load next key position
+            key_positions++;
+            Serial.println("At key position: " + String(current_key));
+
+            //for testing///////////
+            // move_keys(1, dirr);
+            // dirr = (dirr == direction::RIGHT) ? direction::LEFT : direction::RIGHT;//toggle direction for next move
+            // ////////////////////////
+        
             //release mutex
             xSemaphoreGive(ctrl_Mutex);
-
-        }
-        
-        if(currentKey > MAX_KEYS){
-                //home again 
-                home_stepper();
-            }
-
-        // wait for key to play
-        vTaskDelay(pdMS_TO_TICKS(1));
+            vTaskDelay(pdMS_TO_TICKS(10)); // Delay before next move
+        }   
     }
-
-    
 }
 
 //init stepper motor controller
@@ -144,20 +179,19 @@ void init_t_ctrl(){
     //     "Limit Check Task",       /* name of task. */
     //     2048,                    /* Stack size of task */
     //     NULL,                    /* parameter of the task */
-    //     3,                       /* priority of the task */
+    //     2,                       /* priority of the task */
     //     &t_limitCheckTaskHandle,   /* Task handle to keep track of created task */
-    //     1);      //CORE 1
+    //     0);      //CORE 1
 
     // create main controller task which takes care of moving to positions
-    Serial.println("-------------- TASK START ---------------");
     xTaskCreatePinnedToCore(
-        t_controllerTask,          /* Task function. */
-        "Controller Task",       /* name of task. */
+        t_controllerTask,         
+        "Controller Task",   
         4096,                    /* Stack size of task */
-        NULL,                    /* parameter of the task */
-        2,                       /* priority of the task */
-        &t_controllerTaskHandle,   /* Task handle to keep track of created task */
-        0);      //CORE 0
+        NULL,                   
+        1,                       /* priority of the task */
+        &t_controllerTaskHandle, 
+        0);      //CORE 
 
 
 }

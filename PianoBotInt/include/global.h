@@ -6,4 +6,4 @@
 extern SemaphoreHandle_t ctrl_Mutex;
 
 extern int * key_positions;
-extern int * notes;
+extern int* notes; //pointer to integer
