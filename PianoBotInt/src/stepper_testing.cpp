@@ -24,23 +24,20 @@ void back_and_forth_test(int DIR_PIN, int STEP_PIN){
     };
 }
 
-void stepper_setup(int DIR_PIN, int STEP_PIN){
+void stepper_trap(double vmax, double acc){
     const double r = 0.0175; // pulley radius [m]
-    const double vmax = 0.549779; // desired velocity [m/s] (300rpm)
-    const double acc = 0.05; // desired acceleration [m/s^2]
     double spm = 200/(2*PI*r); // steps per meter (whole step)
-    double dist = 3*PI*r*2; // total distance travel = 3rev
+    double dist = 2*PI*r*2; // total distance travel = 2rev
 
     int vstep = (int) (vmax*spm); // max velocity in steps per sec
     int acc_step = (int) (acc*spm); // acc in steps per sec^2
-    int dist_step = (int) (dist*spm); // distance travel in steps //try 400 steps instead
+    int dist_step = (int) (dist*spm); // distance travel in steps
 
-    delay(5000);
     stepper.setMaxSpeed(vstep);
     stepper.setAcceleration(acc_step);
+    // stepper.setMinPulseWidth(40); //
 
-    Serial.println("-----stepper setup-----");
-    stepper.moveTo(dist_step); // move 
+    stepper.moveTo(400); // move 
 }
 void stepper_debug() {
     Serial.print("Current pos: ");
@@ -59,46 +56,22 @@ void stepper_debug() {
     Serial.println(stepper.acceleration());
 }
 
-
-void stepper_run(int DIR_PIN, int STEP_PIN) {
+void stepper_run() {
     stepper.run();
     Serial.println("----moved----");
-    
 }
 
 
-void max_speed_test(int DIR_PIN, int STEP_PIN){
+void max_speed_test(){
     Serial.println("-----Max speed testing----");
-    bool dirr = true; // moving left
-    const int stepDelay = 300; //control speed in microseconds
-    // 1/8 microstep
-    int steps = 1600; //  1 rev
-    
-    unsigned long start_time = 0;
-    unsigned long end_time = 0;
-
-    digitalWrite(DIR_PIN, dirr);
-    while(1){
-        for(int i=0; i<steps; i++){
-            if (i == 0){
-                start_time = micros(); // record start time
-                Serial.println("Start time: " + String(start_time/1e6));
-            }
-            digitalWrite(STEP_PIN, HIGH);
-            delayMicroseconds(stepDelay);
-            digitalWrite(STEP_PIN, LOW);
-            delayMicroseconds(stepDelay);
-            if (i == steps - 1){
-                end_time = micros(); // record end time
-                Serial.println("End time: " + String(end_time/1e6));
-            }
-        }
-        float execute_time = (end_time - start_time) / 1e6; // sec
-        int rpm = 1/execute_time * 60;
-        Serial.println("Execution time: " + String(execute_time));
-        Serial.println("RPM: " + String(rpm));
-        delay(5000);
-    }
+    double v = 0.09163*6.0; //50 rpm
+    const double acc = 0.05;
+    const double inc = 0.09163; // increase by 50rpm 
+    stepper_trap(v, acc);
+    // while(v <= 1.09956){ // <=600rpm
+    //     stepper_trap(v, acc);
+    //     v += inc;
+    // }
 }
 
 void missed_step_test(int DIR_PIN, int STEP_PIN){

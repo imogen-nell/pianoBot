@@ -160,12 +160,12 @@ void init_t_ctrl(){
     //     &t_controllerTaskHandle,   /* Task handle to keep track of created task */
     //     0);      //CORE 0
 
-    stepper_setup(DIR_PIN, STEP_PIN);
+    max_speed_test();
 
 }
 
 void update(){
-    stepper_debug();
-    stepper_run(DIR_PIN, STEP_PIN);
+    // stepper_debug();
+    stepper_run();
 }
 
