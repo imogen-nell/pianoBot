@@ -2,7 +2,7 @@
 //data from hall to ADC input of esp32
 #include <Arduino.h>
 #include "position_sensor.h"
-#include "controller.h"
+#include "vc_controller.h"
 
 //calibration constants
 static constexpr float ADC_MAX = 4095.0f;  // 12-bit ADC

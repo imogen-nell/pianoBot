@@ -1,9 +1,11 @@
 #pragma once
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
+#include "freertos/task.h"
 
-// Declare the mutex for all controllers/tasks
-extern SemaphoreHandle_t ctrl_Mutex;
+// main controller task handle
+extern TaskHandle_t coordinatorTaskHandle;
+extern TaskHandle_t vcTaskHandle;
+extern TaskHandle_t t_controllerTaskHandle;
 
 extern int * key_positions;
 extern int* notes; //pointer to integer
