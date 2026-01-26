@@ -60,10 +60,10 @@ void loop() {
     next_note_ptr = start_addr; //reset notes to start of array
   }
   
-  if(next_key_ptr >= key_end){
-    Serial.println("Resetting key positions");
-    next_key_ptr = key_start; //reset key positions to start of array
-  }
+  // if(next_key_ptr >= key_end){
+  //   Serial.println("Resetting key positions");
+  //   next_key_ptr = key_start; //reset key positions to start of array
+  // }
   
 }
 

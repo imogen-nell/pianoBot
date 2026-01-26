@@ -87,12 +87,12 @@ static void t_controllerTask(void* params){
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         //for testing
-        Serial.println("-------------- MOVING ---------------");
+        Serial.printf("-------------- MOVING to Key: %d\n", *next_key_ptr);
         // Serial.println("Key position: " + String(current_key));
 
 
         int key_diff = *next_key_ptr - current_key;
-
+        
         //move to next key 
         if(key_diff != 0){
             //move (keys, dirrection, step freq. Hz)
@@ -105,6 +105,11 @@ static void t_controllerTask(void* params){
 
         //look at next key position
         next_key_ptr++;
+        
+        if(next_key_ptr >= key_end){
+            Serial.println("Resetting key positions");
+            next_key_ptr = key_start; //reset key positions to start of array
+        }
 
         // Notify coordinator that stepper is done
         xTaskNotifyGive(coordinatorTaskHandle);
@@ -115,9 +120,15 @@ static void t_controllerTask(void* params){
 
 //home to leftmost key 
 static void home_stepper(){
+    pinMode(STEP_PIN, OUTPUT);
+    digitalWrite(DIR_PIN, direction::LEFT);
     //move left until home switch is hit
     while (1) {
-       move_keys(1, direction::LEFT, 5000, true); //move left 1 key at a time with 1ms step time   
+        digitalWrite(STEP_PIN, HIGH);
+        vTaskDelay(pdMS_TO_TICKS(1));    
+        digitalWrite(STEP_PIN, LOW);
+        vTaskDelay(pdMS_TO_TICKS(1)); 
+    //    move_keys(1, direction::LEFT, 5000, true); //move left 1 key at a time with 1ms step time   
         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
             delay(1); // small delay to filter bounce
             if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
@@ -150,6 +161,11 @@ void init_t_ctrl(){
     pinMode(DIR_PIN, OUTPUT);
     pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN);
 
+    //begin homing
+    Serial.println("----------------- homing -----------------"); 
+    home_stepper();
+    Serial.println("-------------- homing done ---------------");
+
     // RMT channel configuration for stepper control
     //RMT -remote- module driver used to generate step pulses 
     //(waveform) with highly specific pulse duration 
@@ -172,10 +188,7 @@ void init_t_ctrl(){
     //register RMT callback, called when transmittion ends (after moving stepper)
     rmt_register_tx_end_callback(rmt_tx_done_cb, NULL);
 
-    //begin homing
-    Serial.println("----------------- homing -----------------"); 
-    home_stepper();
-    Serial.println("-------------- homing done ---------------");
+
 
     // create main controller task which takes care of moving to desired key positions
     xTaskCreatePinnedToCore(

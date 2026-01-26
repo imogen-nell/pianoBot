@@ -11,3 +11,10 @@ extern TaskHandle_t t_controllerTaskHandle;
 
 extern int * next_key_ptr;
 extern int* next_note_ptr; //pointer to integer
+
+
+extern int* start_addr;
+extern int* end_addr;
+
+extern int* key_start;
+extern int* key_end;

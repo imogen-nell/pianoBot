@@ -11,16 +11,16 @@ static TaskHandle_t stepperTaskHandle = nullptr;
 
 static void coordinatorTask(void * pvParameters){
     while(1) {
-        // 1. tell finger to play note
-        xTaskNotifyGive(fingerTaskHandle);
-
-        // wait until finger fully up
+        // tell stepper to move
+        xTaskNotifyGive(stepperTaskHandle);
+        
+        // wait until moved
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        // 2. tell stepper to move
-        xTaskNotifyGive(stepperTaskHandle);
+        // tell finger to play note
+        xTaskNotifyGive(fingerTaskHandle);
 
-        // wait until stepper done moving
+        // wait until finger up
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     }
 }
