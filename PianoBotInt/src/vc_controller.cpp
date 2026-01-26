@@ -59,10 +59,10 @@ void send_pwm(int ctrl_pwm){
     // Serial.printf("PID,%lu,%d\n", millis(), ctrl_pwm); 
 }
 
-//timer callback to lift finger after note is played
-static void finger_up_cb(TimerHandle_t xTimer)
+//timer callback(mandatory)
+static void finger_cb(TimerHandle_t xTimer)
 {
-    send_pwm(PWM_t::UP); 
+    // send_pwm(PWM_t::UP); 
 
     // Notify finger task that motion is complete
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -106,7 +106,7 @@ void finger_timer_init(void)
         pdMS_TO_TICKS(10),
         pdFALSE,        // one-shot
         NULL,
-        finger_up_cb
+        finger_cb //notifies done
     );
 }
 
@@ -117,12 +117,14 @@ static void controllerTask(void* pvParameters){
         // Wait for command from main controller/coordinator
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
+        //for testing
         Serial.println("-------------- play key ---------------");
 
-        //play all notes until delimiter 0 is hit
-        while(* notes != 0){
-            // Serial.printf("Playing note: %d\n", * notes);
-            send_pwm(* notes);
+        //play all notes at current key position (without moving stepper) until delimiter 0 is hit
+        while(* next_note_ptr != 0){
+            //send to voice coil
+            send_pwm(* next_note_ptr);
+
             //hold each input for 10ms
             xTimerStop(voice_coil_timer, 0);     // reset timer if already running
             xTimerStart(voice_coil_timer, 0);    // will lift finger after 10 ms
@@ -130,9 +132,12 @@ static void controllerTask(void* pvParameters){
             // Wait until the 10 ms timer lifts the finger
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-            notes++;
+            next_note_ptr++;
         }
-        notes++; //skip the 0 delimiter
+        //lift finger;
+        send_pwm(PWM_t::UP);
+
+        next_note_ptr++; //skip the 0 delimiter
         
 
         // Notify coordinator that finger is finished
@@ -147,10 +152,12 @@ void init_controller(float kp, float ki, float kd){
     Ki = ki;
     Kd = kd;
 
-    //initialize pins to motor driver and timer 
+    //initialize pins to motor driver
     pinMode(DIR_PIN, OUTPUT);
     ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
     ledcAttachPin(PWM_PIN, PWM_CHANNEL);
+
+    //10sm timer, - note array inputs are for 10ms each
     finger_timer_init();
 
     //initialize linear position sensor

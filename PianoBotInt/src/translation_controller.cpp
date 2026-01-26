@@ -70,6 +70,8 @@ static void move_keys(int keys, direction dirr, uint16_t hz = 10000, bool homing
     }
 
     // send step waveform from rmt_item array, NON BLOCKING
+    //start RMT engine, DMA begin outputting step pulses, returns immediately
+    //interrupt (callback within ISR) raised when RMT item complete
     rmt_write_items(RMT_CH, step_buffer, steps, false);
 
     //update current key position
@@ -84,21 +86,25 @@ static void t_controllerTask(void* params){
         // Wait for coordinator command
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        Serial.println("-------------- MOVE ---------------");
+        //for testing
+        Serial.println("-------------- MOVING ---------------");
         // Serial.println("Key position: " + String(current_key));
 
 
-        int key_diff = *key_positions - current_key;
+        int key_diff = *next_key_ptr - current_key;
 
         //move to next key 
         if(key_diff != 0){
+            //move (keys, dirrection, step freq. Hz)
             move_keys(abs(key_diff), (key_diff > 0) ? direction::RIGHT : direction::LEFT, 10000);
-            // Wait until RMT finishes (from ISR)
+            // Wait until RMT transmission finishes (from ISR)
+            //ie block stepper task until RMT hardware signals that all step pulses complete
+            //blocks/stops stepper task until steps complete
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         }   
 
-        //look at next key position by incrementing pointer
-        key_positions++;
+        //look at next key position
+        next_key_ptr++;
 
         // Notify coordinator that stepper is done
         xTaskNotifyGive(coordinatorTaskHandle);
@@ -122,8 +128,12 @@ static void home_stepper(){
     }
 }
 
+//IRAM_ATTR : runs insdie ISR
+// callback occurs within the ISR, 
+//the ISR is initiated by hardware when RMT transmission completes
 static void IRAM_ATTR rmt_tx_done_cb(rmt_channel_t channel, void *arg) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    //notify stepper task, unblock t_ctrlrtask
     xTaskNotifyFromISR(
         t_controllerTaskHandle, // task to notify
         0, // no value
@@ -136,27 +146,30 @@ static void IRAM_ATTR rmt_tx_done_cb(rmt_channel_t channel, void *arg) {
 
 //init stepper motor controller
 void init_t_ctrl(){
-    //initialize pins for stepper motor
     // pinMode(STEP_PIN, OUTPUT);
     pinMode(DIR_PIN, OUTPUT);
     pinMode(HOME_SWITCH_PIN, INPUT_PULLDOWN);
 
     // RMT channel configuration for stepper control
+    //RMT -remote- module driver used to generate step pulses 
+    //(waveform) with highly specific pulse duration 
     rmt_config_t config = {}; //produced HIGH for X ticks and LOW for Y ticks
 
+    //configure chanel in transmit mode 
     config.rmt_mode = RMT_MODE_TX;
     config.channel = RMT_CH;
     config.gpio_num = STEP_PIN;
     config.clk_div = 80;                 // 1 µs resolution
     config.mem_block_num = 1;
-    config.tx_config.loop_en = false;
-    config.tx_config.carrier_en = false;
-    config.tx_config.idle_output_en = true;
-    config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+    config.tx_config.loop_en = false; 
+    config.tx_config.carrier_en = false; //disable carrier signal
+    config.tx_config.idle_output_en = true; //enable RMT output if idle
+    config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW; //signal level out output when idle
 
     rmt_config(&config);
-    rmt_driver_install(config.channel, 0, 0);
-    //register RMT callback
+    rmt_driver_install(config.channel, 0, 0); //RX buffer not used, default flags 
+
+    //register RMT callback, called when transmittion ends (after moving stepper)
     rmt_register_tx_end_callback(rmt_tx_done_cb, NULL);
 
     //begin homing
@@ -164,7 +177,7 @@ void init_t_ctrl(){
     home_stepper();
     Serial.println("-------------- homing done ---------------");
 
-    // create main controller task which takes care of moving to positions
+    // create main controller task which takes care of moving to desired key positions
     xTaskCreatePinnedToCore(
         t_controllerTask,         
         "Controller Task",   
