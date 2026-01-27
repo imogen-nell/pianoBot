@@ -24,12 +24,10 @@ void back_and_forth_test(int DIR_PIN, int STEP_PIN){
     };
 }
 
-void stepper_trap(double vmax, double dist){
+void stepper_trap(double vmax, double acc, double dist){
     const double r = 0.0175; // pulley radius [m]
     const double factor = 8.0; // microstep setting (1/8)
     double spm = (200.0*factor)/(2.0*PI*r); // steps per meter
-
-    double acc = 3.0*(vmax*vmax)/abs(dist);
 
     int vstep = (int) (vmax*spm); // max velocity in steps per sec
     int acc_step = (int) (acc*spm); // acc in steps per sec^2
@@ -40,9 +38,6 @@ void stepper_trap(double vmax, double dist){
     // stepper.setMinPulseWidth(40); // oscilloscope 
 
     stepper.move(dist_step); // move relative position
-
-    Serial.print("Speed: ");
-    Serial.println(vmax);
 }
 
 void stepper_debug() {
@@ -66,6 +61,34 @@ void stepper_run() {
     stepper.run();
 }
 
+void max_acc_test(){
+    Serial.println("-----Max acceleration testing----");
+
+    double v = 0.09163*7; //400 rpm
+
+    const double r = 0.0175; // pulley radius [m]
+    const double rev = 2; //half rev
+    double dist = 2.0*PI*r*rev;
+
+    double acc = 3.0;
+    const double inc = 0.5; // increase by .5m/s^2 
+
+    while(acc <= 20.0){
+        stepper_trap(v, acc, dist);
+
+        Serial.print("Acceleration: ");
+        Serial.println(acc);
+
+        // BLOCKING WAIT: This makes the code wait until the move is finished
+        while (stepper.distanceToGo() != 0) {
+            stepper.run();
+        }
+        acc += inc;
+        dist = -dist;
+        delay(1000);
+    }
+}
+
 void max_speed_test(){
     Serial.println("-----Max speed testing----");
 
@@ -75,9 +98,14 @@ void max_speed_test(){
     const double r = 0.0175; // pulley radius [m]
     const double rev = 2; //half rev
     double dist = 2.0*PI*r*rev;
-    
-    while(v <= 1.09956){ // <=600rpm
-        stepper_trap(v, dist);
+
+    double acc = 5.0;
+
+    while(v <= 0.09163*12.0){ // <=600rpm
+        stepper_trap(v, acc, dist);
+
+        Serial.print("Speed: ");
+        Serial.println(v);
 
         // BLOCKING WAIT: This makes the code wait until the move is finished
         while (stepper.distanceToGo() != 0) {
@@ -88,6 +116,7 @@ void max_speed_test(){
         delay(1000);
     }
 }
+
 
 void missed_step_test(int DIR_PIN, int STEP_PIN){
     // proceed for 1000 steps at various speeds
