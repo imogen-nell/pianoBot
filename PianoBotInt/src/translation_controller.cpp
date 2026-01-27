@@ -87,7 +87,7 @@ static void t_controllerTask(void* params){
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         //for testing
-        Serial.printf("-------------- MOVING to Key: %d\n", *next_key_ptr);
+        // Serial.printf("-------------- MOVING to Key: %d\n", *next_key_ptr);
         // Serial.println("Key position: " + String(current_key));
 
 

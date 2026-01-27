@@ -9,12 +9,13 @@ extern TaskHandle_t coordinatorTaskHandle;
 extern TaskHandle_t vcTaskHandle;
 extern TaskHandle_t t_controllerTaskHandle;
 
-extern int * next_key_ptr;
+
 extern int* next_note_ptr; //pointer to integer
 
 
 extern int* start_addr;
 extern int* end_addr;
 
-extern int* key_start;
-extern int* key_end;
+extern uint8_t* next_key_ptr;
+extern uint8_t* key_start;
+extern uint8_t* key_end;

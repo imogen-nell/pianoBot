@@ -47,7 +47,7 @@ static TimerHandle_t finger_up_timer; //100 ms
 
 //PWM control values for finger positions
 enum PWM_t {
-    UP = -200,
+    UP = -100,
     DOWN = 200,
     REST = 0
 };
@@ -69,16 +69,16 @@ static void note_timer_cb(TimerHandle_t xTimer)
     // Notify finger task that motion is complete
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     //set correct flag
-    xTaskNotifyFromISR(vcTaskHandle, NOTE_DONE, eNoAction, &xHigherPriorityTaskWoken);
+    xTaskNotifyFromISR(vcTaskHandle, NOTE_DONE, eSetBits, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 static void finger_up_cb(TimerHandle_t xTimer)
 {
-    BaseType_t hpw = pdFALSE;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     //sets flag
-    xTaskNotifyFromISR(vcTaskHandle, FINGER_UP_DONE, eSetBits, &hpw);
-    portYIELD_FROM_ISR(hpw);
+    xTaskNotifyFromISR(vcTaskHandle, FINGER_UP_DONE, eSetBits, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 //**reads target voltage for hall sensor
@@ -126,7 +126,7 @@ void finger_up_timer_init(void)
 {
     finger_up_timer = xTimerCreate(
         "finger_up_timer",
-        pdMS_TO_TICKS(500),
+        pdMS_TO_TICKS(100),
         pdFALSE,        // one-shot
         NULL,
         finger_up_cb //notifies done
@@ -141,21 +141,25 @@ static void controllerTask(void* pvParameters){
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         //for testing
-        Serial.printf("-------------- PLAY key at: %d\n", next_note_ptr- start_addr);
+        Serial.printf("-------------- PLAY key at: %d, %d\n", next_note_ptr- start_addr,*next_note_ptr );
 
         //play all notes at current key position (without moving stepper) until delimiter 0 is hit
-        while(* next_note_ptr != 0){
+        while(*next_note_ptr != 0){
             //send to voice coil
-            send_pwm(* next_note_ptr);
+            send_pwm(*next_note_ptr);
 
             //hold each input for 10ms
             xTimerStop(voice_coil_timer, 0);     // reset timer if already running
             xTimerStart(voice_coil_timer, 0);    // will lift finger after 10 ms
-            
-            // Wait until the 10 ms timer 
-            xTaskNotifyWait(0, NOTE_DONE, NULL, portMAX_DELAY);
-
             next_note_ptr++;
+            // Wait until the 10 ms timer 
+            uint32_t notifyValue =0;
+            xTaskNotifyWait(0, NOTE_DONE, &notifyValue, portMAX_DELAY);
+            // Make sure the timer actually fired
+            // while ((notifyValue & NOTE_DONE) == 0) {
+            //     xTaskNotifyWait(0, NOTE_DONE, &notifyValue, portMAX_DELAY);
+            // }
+            
         }
         //lift finger;
         send_pwm(PWM_t::UP);
@@ -192,6 +196,7 @@ void init_controller(float kp, float ki, float kd){
     //10sm timer, - note array inputs are for 10ms each
     finger_timer_init();
     finger_up_timer_init();
+
     //initialize linear position sensor
     init_sensor();
 
