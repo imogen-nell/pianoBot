@@ -24,10 +24,12 @@ void back_and_forth_test(int DIR_PIN, int STEP_PIN){
     };
 }
 
-void stepper_trap(double vmax, double acc){
+void stepper_trap(double vmax, double dist){
     const double r = 0.0175; // pulley radius [m]
-    double spm = 200/(2*PI*r); // steps per meter (whole step)
-    double dist = 2*PI*r*2; // total distance travel = 2rev
+    const double factor = 8.0; // microstep setting (1/8)
+    double spm = (200.0*factor)/(2.0*PI*r); // steps per meter
+
+    double acc = 3.0*(vmax*vmax)/abs(dist);
 
     int vstep = (int) (vmax*spm); // max velocity in steps per sec
     int acc_step = (int) (acc*spm); // acc in steps per sec^2
@@ -35,10 +37,14 @@ void stepper_trap(double vmax, double acc){
 
     stepper.setMaxSpeed(vstep);
     stepper.setAcceleration(acc_step);
-    // stepper.setMinPulseWidth(40); //
+    // stepper.setMinPulseWidth(40); // oscilloscope 
 
-    stepper.moveTo(400); // move 
+    stepper.move(dist_step); // move relative position
+
+    Serial.print("Speed: ");
+    Serial.println(vmax);
 }
+
 void stepper_debug() {
     Serial.print("Current pos: ");
     Serial.println(stepper.currentPosition());
@@ -58,20 +64,29 @@ void stepper_debug() {
 
 void stepper_run() {
     stepper.run();
-    Serial.println("----moved----");
 }
-
 
 void max_speed_test(){
     Serial.println("-----Max speed testing----");
-    double v = 0.09163*6.0; //50 rpm
-    const double acc = 0.05;
+
+    double v = 0.09163; //50 rpm
     const double inc = 0.09163; // increase by 50rpm 
-    stepper_trap(v, acc);
-    // while(v <= 1.09956){ // <=600rpm
-    //     stepper_trap(v, acc);
-    //     v += inc;
-    // }
+
+    const double r = 0.0175; // pulley radius [m]
+    const double rev = 2; //half rev
+    double dist = 2.0*PI*r*rev;
+    
+    while(v <= 1.09956){ // <=600rpm
+        stepper_trap(v, dist);
+
+        // BLOCKING WAIT: This makes the code wait until the move is finished
+        while (stepper.distanceToGo() != 0) {
+            stepper.run();
+        }
+        v += inc;
+        dist = -dist;
+        delay(1000);
+    }
 }
 
 void missed_step_test(int DIR_PIN, int STEP_PIN){

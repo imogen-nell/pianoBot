@@ -166,6 +166,6 @@ void init_t_ctrl(){
 
 void update(){
     // stepper_debug();
-    stepper_run();
+    // stepper_run();
 }
 
