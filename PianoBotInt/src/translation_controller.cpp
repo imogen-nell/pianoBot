@@ -5,8 +5,6 @@
 #include "t_controller.h"
 #include "driver/rmt.h"
 
-// step freq reliable range: 1 kHz – 50 kHz
-
 //init stepper motor controller
 StepperController::StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len)
     : config(cfg), next_key_ptr(key_positions_start), key_start(key_positions_start),key_end(key_positions_start+key_arr_len)
@@ -20,6 +18,16 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
     Serial.println("----------------- homing -----------------"); 
     home();
     Serial.println("-------------- homing done ---------------");
+
+    //allocate once
+    step_buffer_capacity = config.MAX_KEYS * config.STEPS_PER_KEY;
+
+    step_buffer = (rmt_item32_t*) heap_caps_malloc(
+        step_buffer_capacity * sizeof(rmt_item32_t),
+        MALLOC_CAP_DMA
+    );
+
+    assert(step_buffer);
 
     // RMT channel config
     //RMT -remote- module driver used to generate step pulses 
@@ -49,7 +57,7 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
         "StepperTask",   
         4096,                    /* Stack size of task */
         this,                   
-        1,                       /* priority of the task */
+        3,                       /* priority of the task */
         &taskHandle, 
         0);      //CORE 
 
@@ -70,10 +78,10 @@ void IRAM_ATTR StepperController::rmt_tx_done_cb(rmt_channel_t channel, void *ar
     //notify stepper task, unblock t_ctrlrtask
     auto stepper = static_cast<StepperController*>(arg);
     //free mem
-    if (stepper->active_buffer) {
-        heap_caps_free(stepper->active_buffer);
-        stepper->active_buffer = nullptr;
-    }
+    // if (stepper->active_buffer) {
+    //     heap_caps_free(stepper->active_buffer);
+    //     stepper->active_buffer = nullptr;
+    // }
     xTaskNotifyFromISR(
         stepper->taskHandle, // task to notify
         0, // no value
@@ -138,20 +146,11 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
     uint32_t steps = keys * config.STEPS_PER_KEY;
-    //create buffer for steps
-    rmt_item32_t *step_buffer =(rmt_item32_t *) heap_caps_malloc( // returns void pointer, cast to rmt_item32_t*
-        sizeof(rmt_item32_t) * steps, 
-        MALLOC_CAP_DMA
-    ); // heap caps guarantees memory is accessible by DMA
 
-    if(!step_buffer) return; // allocation failed
-    
-    //fill items array with step pulses
     for(int i = 0; i < steps; i++){
         step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
     }
 
-    active_buffer = step_buffer;
 
     // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately

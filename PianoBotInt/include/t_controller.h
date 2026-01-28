@@ -34,7 +34,8 @@ private:
 
     // current position
     int current_key = 0;
-    rmt_item32_t* active_buffer = nullptr;
+    rmt_item32_t* step_buffer = nullptr;
+    uint32_t step_buffer_capacity = 0;
 
 
     // key array pointers
