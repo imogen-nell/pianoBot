@@ -13,7 +13,7 @@ public:
     //constructor
     VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
                         float kp, float ki, float kd,
-                        int* next_note_ptr, int* end_addr);
+                        int* next_note_ptr, int notes_arr_len);
 
     TaskHandle_t getTaskHandle() const { return vcTaskHandle; }
     void setCoordinatorHandle(TaskHandle_t handle);

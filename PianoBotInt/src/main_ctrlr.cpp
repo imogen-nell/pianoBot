@@ -1,6 +1,7 @@
 #include "coordinator.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <HardwareSerial.h>
 
 Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask)
     : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask)
@@ -32,14 +33,13 @@ void Coordinator::coordinatorTaskEntry(void* pvParameters) {
 void Coordinator::coordinatorTask() {
     while(1) {
         // tell stepper to move
+        Serial.println("stepper move cmnd");
         xTaskNotifyGive(stepperTaskHandle);
-        
         // wait until moved
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
+        Serial.println("finger play cmnd");
         // tell finger to play note
         xTaskNotifyGive(fingerTaskHandle);
-
         // wait until finger up
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     }

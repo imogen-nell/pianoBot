@@ -12,7 +12,7 @@ struct StepperConfig {
     rmt_channel_t RMT_CH;
     //all finges same stepsper key and max keys for now
     static constexpr int MAX_KEYS = 13; 
-    static constexpr int STEPS_PER_KEY = 54 * 8;
+    static constexpr int STEPS_PER_KEY = 30 * 8;
 };
 
 
@@ -22,9 +22,11 @@ class StepperController {
 public:
     enum direction {RIGHT,LEFT};
     
-    StepperController(const StepperConfig& cfg, int* key_positions_start, int* key_positions_end);
+    StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len);
 
     TaskHandle_t getTaskHandle() const { return taskHandle; }
+    void setCoordinatorHandle(TaskHandle_t handle){this->coordinatorTaskHandle = handle;};
+
 
 private:
     // hardware config
@@ -32,14 +34,17 @@ private:
 
     // current position
     int current_key = 0;
+    rmt_item32_t* active_buffer = nullptr;
+
 
     // key array pointers
-    int* next_key_ptr;
-    int* key_start;
-    int* key_end; //end of keys array
+    int* next_key_ptr; //moves through the array 
+    int* const key_start; //const song array for now
+    int* const key_end; //end of keys array
 
     // task handle
     TaskHandle_t taskHandle = nullptr;
+    TaskHandle_t coordinatorTaskHandle = nullptr;
 
     // main stepper task loop
     void run();

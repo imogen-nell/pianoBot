@@ -47,12 +47,14 @@ void setup() {
   /// -------------------- FINGER 1 -----------------------------------
   //init hardware drivers 
   StepperConfig stepper_cfg_1 = { GPIO_NUM_25, GPIO_NUM_26, GPIO_NUM_27, RMT_CHANNEL_0};
-  static StepperController stepper_1(stepper_cfg_1, keys, keys+KEYS_LEN); // stepper
-  static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,note_array,note_array+NOTE_LEN ); // voice coil
-
+  static StepperController stepper_1(stepper_cfg_1, keys, KEYS_LEN); // stepper
+  Serial.println("create vc ");
+  static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,note_array,NOTE_LEN ); // voice coil
+  Serial.println("done vc ");
   // Wire tasks together 
   static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle()); //static' ensures the object lives for the entire program lifetime
   vc1.setCoordinatorHandle(finger1.getTaskHandle());
+  stepper_1.setCoordinatorHandle(finger1.getTaskHandle());
   /// -----------------------------------------------------------------
 
 

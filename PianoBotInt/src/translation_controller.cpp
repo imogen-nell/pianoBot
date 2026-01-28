@@ -5,34 +5,13 @@
 #include "t_controller.h"
 #include "driver/rmt.h"
 
-
-//esp32 pins allocated to stepper
-// #define STEP_PIN GPIO_NUM_25
-// #define DIR_PIN 26
-// #define HOME_SWITCH_PIN 27
-// #define RMT_CH RMT_CHANNEL_0
-
-//number of keys reachable by finger
-// #define MAX_KEYS 13
-// #define STEPS_PER_KEY 54 * 8
 // step freq reliable range: 1 kHz – 50 kHz
-//current key position
-// static int current_key = 0;
-
-//limit hit flag
-// static bool hit_limit = false;
-
-// TaskHandle_t t_controllerTaskHandle = nullptr;
-
-
 
 //init stepper motor controller
-StepperController::StepperController(const StepperConfig& cfg, int* key_positions_start, int* key_positions_end)
-    : config(cfg), next_key_ptr(key_positions_start), key_end(key_positions_end)
+StepperController::StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len)
+    : config(cfg), next_key_ptr(key_positions_start), key_start(key_positions_start),key_end(key_positions_start+key_arr_len)
 {    
 
-    key_start = key_positions_start;
-    //init pins 
     pinMode(config.DIR_PIN, OUTPUT);
     pinMode(config.HOME_SWITCH_PIN, INPUT_PULLDOWN);
     // pinMode(config.step_pin, OUTPUT);
@@ -52,7 +31,7 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
     rmt_cfg .channel = config.RMT_CH;
     rmt_cfg .gpio_num = config.STEP_PIN;
     rmt_cfg .clk_div = 80;                 // 1 µs resolution
-    rmt_cfg .mem_block_num = 1;
+    rmt_cfg .mem_block_num = 2;
     rmt_cfg .tx_config.loop_en = false; 
     rmt_cfg .tx_config.carrier_en = false; //disable carrier signal
     rmt_cfg .tx_config.idle_output_en = true; //enable RMT output if idle
@@ -89,14 +68,19 @@ void StepperController::taskEntry(void* pvParameters) {
 void IRAM_ATTR StepperController::rmt_tx_done_cb(rmt_channel_t channel, void *arg) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     //notify stepper task, unblock t_ctrlrtask
-    StepperController* stepper = static_cast<StepperController*>(arg);
+    auto stepper = static_cast<StepperController*>(arg);
+    //free mem
+    if (stepper->active_buffer) {
+        heap_caps_free(stepper->active_buffer);
+        stepper->active_buffer = nullptr;
+    }
     xTaskNotifyFromISR(
         stepper->taskHandle, // task to notify
         0, // no value
         eNoAction,//no action on value
         &xHigherPriorityTaskWoken // higher priority task woken flag
     );
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken); // yield if higher priority task was woken
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken); //yeild if flagged
 }
 
 //stepper task to move to target positions
@@ -116,10 +100,8 @@ void StepperController::run(){
         //move to next key 
         if(key_diff != 0){
             //move (keys, dirrection, step freq. Hz)
-            move_keys(abs(key_diff), (key_diff > 0) ? direction::RIGHT : direction::LEFT, 10000);
-            // Wait until RMT transmission finishes (from ISR)
-            //ie block stepper task until RMT hardware signals that all step pulses complete
-            // wait until RMT finished (callback will unblock)
+            move_keys(abs(key_diff), (key_diff > 0) ? direction::RIGHT : direction::LEFT, 5000);
+            // Wait until RMT transmission finishes (from ISR) - callback will unblock
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         }   
 
@@ -130,12 +112,15 @@ void StepperController::run(){
             Serial.println("Resetting key positions");
             next_key_ptr = key_start; //reset key positions to start of array
         }
+        xTaskNotifyGive(coordinatorTaskHandle);
+        taskYIELD(); 
 
     }  
     
 }
 
 //moves stepper a number of keys in given direction
+//          then updates current_key position
 //arguments: keys - number of keys to move
 //           dirr  - direction RIGHT/LEFT
 //           step_time - time between step in ms (default 4ms)
@@ -150,6 +135,7 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     }
 
     digitalWrite(config.DIR_PIN, dirr);
+    ets_delay_us(5);  // ESP32-safe microsecond delay
 
     uint32_t steps = keys * config.STEPS_PER_KEY;
     //create buffer for steps
@@ -164,6 +150,8 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     for(int i = 0; i < steps; i++){
         step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
     }
+
+    active_buffer = step_buffer;
 
     // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately

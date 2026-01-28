@@ -3,10 +3,10 @@
 // Constructor
 VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
                                          float kp, float ki, float kd,
-                                        int* start, int* end)
+                                        int* start, int notes_arr_len)
     : PWM_PIN(pwm_pin), DIR_PIN(dir_pin), PWM_CHANNEL(pwm_channel),
       Kp(kp), Ki(ki), Kd(kd), 
-      next_note_ptr(start), end_addr(end),start_addr(start)
+      next_note_ptr(start), end_addr(start+notes_arr_len),start_addr(start)
 {    
     //initialize pins to motor driver
     pinMode(DIR_PIN, OUTPUT);
@@ -79,12 +79,14 @@ void VoiceCoilController::note_timer_cb(TimerHandle_t xTimer)
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-void VoiceCoilController::finger_up_cb(TimerHandle_t xTimer) {
+void IRAM_ATTR VoiceCoilController::finger_up_cb(TimerHandle_t xTimer) {
+    // get the VoiceCoilController instance
     auto self = static_cast<VoiceCoilController*>(pvTimerGetTimerID(xTimer));
 
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     //sets flag
     xTaskNotifyFromISR(self->vcTaskHandle, FINGER_UP_DONE, eSetBits, &xHigherPriorityTaskWoken);
+    xTaskNotifyFromISR(self->coordinatorTaskHandle, 0, eNoAction, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
@@ -166,8 +168,9 @@ void VoiceCoilController::controllerTask() {
         }
                 
 
-        // Notify coordinator that finger is finished
+        // Notify coordinator that finger is finished - done in fingerup ISR 
         // xTaskNotifyGive(coordinatorTaskHandle);
+        // taskYIELD();                            // yield immediately to scheduler
     }
     
 }
