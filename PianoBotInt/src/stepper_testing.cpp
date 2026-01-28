@@ -64,8 +64,7 @@ void stepper_run() {
 void max_acc_test(){
     Serial.println("-----Max acceleration testing----");
 
-    double v = 0.09163*7; //400 rpm
-
+    double v = 0.09163*7; //350 rpm
     const double r = 0.0175; // pulley radius [m]
     const double rev = 2; //half rev
     double dist = 2.0*PI*r*rev;
@@ -117,10 +116,39 @@ void max_speed_test(){
     }
 }
 
-
-void missed_step_test(int DIR_PIN, int STEP_PIN){
+void missed_step_test(){
     // proceed for 1000 steps at various speeds
     Serial.println("-----Missed Step Testing ----");
 
+    double v = 0.09163; //50 rpm
+    const double inc = 0.09163; // increase by 50rpm 
+
+    const double r = 0.0175; // pulley radius [m]
+    double factor = 8.0;
+    double mps = (2.0*PI*r)/(200.0*factor); //meter per step
+
+    double steps[5] = {300, -400, 200, -100, 0};
+    int num_moves = sizeof(steps)/sizeof(steps[0]);
+
+    double acc = 5.0;
+
+    while(v <= 0.09163*7){
+        for(int i=0; i<num_moves; i++){
+            double dist = steps[i]*mps*factor;
+            stepper_trap(v, acc, dist);
+
+            Serial.print("Step: ");
+            Serial.println(steps[i]);
+
+            // BLOCKING WAIT: This makes the code wait until the move is finished
+            while (stepper.distanceToGo() != 0) {
+                stepper.run();
+            }
+            delay(1000);
+        }
+        v += inc;
+        Serial.println("---Speed update---");
+        delay(1000);
+    }
 
 }

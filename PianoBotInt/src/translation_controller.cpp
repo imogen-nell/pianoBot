@@ -161,7 +161,8 @@ void init_t_ctrl(){
     //     0);      //CORE 0
 
     // max_acc_test();
-    max_speed_test();
+    // max_speed_test();
+    missed_step_test();
 }
 
 void update(){
