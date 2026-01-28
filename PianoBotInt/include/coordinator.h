@@ -5,7 +5,7 @@
 class Coordinator {
 public:
     Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask);
-    TaskHandle_t getTaskHandle();
+    TaskHandle_t getTaskHandle() const; //const: calling fcn doesnt modisy this object
 
 private:
     TaskHandle_t coordinatorTaskHandle;

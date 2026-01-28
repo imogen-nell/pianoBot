@@ -139,7 +139,7 @@ void StepperController::run(){
 //arguments: keys - number of keys to move
 //           dirr  - direction RIGHT/LEFT
 //           step_time - time between step in ms (default 4ms)
-void StepperController::move_keys(int keys, direction dirr, uint16_t hz = 10000, bool homing = false){
+void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool homing ){
     //ensure move is in bounds
     if (!homing){
         int target_key = current_key + keys * ((dirr == direction::RIGHT) ? 1 : -1);

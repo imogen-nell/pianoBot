@@ -10,9 +10,8 @@ class VoiceCoilController {
 public:
     // PWM values for finger positions
     enum PWM_t { UP = -100, DOWN = 200, REST = 0 };
-
+    //constructor
     VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
-                        TaskHandle_t coordinator_handle,
                         float kp, float ki, float kd,
                         int* next_note_ptr, int* end_addr);
 
@@ -27,7 +26,10 @@ private:
     static constexpr uint32_t PWM_FREQ = 20000;
     static constexpr uint8_t PWM_RES = 8;
 
-
+    // --- Task handle ---
+    TaskHandle_t vcTaskHandle = nullptr;
+    TaskHandle_t coordinatorTaskHandle = nullptr;
+    
     // key array pointers
     int* next_note_ptr;
     int* start_addr;
@@ -39,10 +41,6 @@ private:
     float previous_error = 0.0f;
     float integral = 0.0f;
     static constexpr float dt = 0.002f;
-
-    // --- Task handle ---
-    TaskHandle_t vcTaskHandle = nullptr;
-    TaskHandle_t coordinatorTaskHandle;
 
     // --- Timers ---
     TimerHandle_t voice_coil_timer = nullptr; // 10 ms

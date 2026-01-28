@@ -2,13 +2,11 @@
 
 // Constructor
 VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
-                                         TaskHandle_t coordinator_handle,
                                          float kp, float ki, float kd,
                                         int* start, int* end)
     : PWM_PIN(pwm_pin), DIR_PIN(dir_pin), PWM_CHANNEL(pwm_channel),
-      coordinatorTaskHandle(coordinator_handle),
       Kp(kp), Ki(ki), Kd(kd), 
-      next_note_ptr(start), end_addr(end),start_addr(start), 
+      next_note_ptr(start), end_addr(end),start_addr(start)
 {    
     //initialize pins to motor driver
     pinMode(DIR_PIN, OUTPUT);
@@ -33,11 +31,11 @@ VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8
 
 }
 
-//private methods 
-
-void setCoordinatorHandle(TaskHandle_t handle) {
-    coordinatorTaskHandle = handle;
+void VoiceCoilController::setCoordinatorHandle(TaskHandle_t handle) {
+    this->coordinatorTaskHandle = handle;
 }
+
+//private methods 
 
 //initializes finger pwm off timer
 void VoiceCoilController::init_timers() {

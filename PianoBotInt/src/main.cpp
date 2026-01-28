@@ -3,9 +3,10 @@
 #include "t_controller.h"
 #include <cstdlib> // Required for integer abs()
 #include "freertos/semphr.h"
-// #include "global.h"
 #include "coordinator.h"
 #include <list>
+#include "driver/rmt.h"
+
 
 
 //hot cross buns
@@ -43,22 +44,17 @@ void setup() {
   next_note_ptr = &note_array[0]; //let next_note_ptr point to first element of note array
   next_key_ptr = &keys[0]; // let next_key_ptr point to first element of key position array 
   
+  /// -------------------- FINGER 1 -----------------------------------
   //init hardware drivers 
-
   StepperConfig stepper_cfg_1 = { GPIO_NUM_25, GPIO_NUM_26, GPIO_NUM_27, RMT_CHANNEL_0};
-  StepperController stepper_1(stepper_cfg_1, keys, keys+KEYS_LEN); // stepper
-  
-  
-  VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,note_array,note_array+NOTE_LEN ); // voice coil
+  static StepperController stepper_1(stepper_cfg_1, keys, keys+KEYS_LEN); // stepper
+  static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,note_array,note_array+NOTE_LEN ); // voice coil
 
-  // --- Wire tasks together ---
-  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle()); //tatic' ensures the object lives for the entire program lifetime
+  // Wire tasks together 
+  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle()); //static' ensures the object lives for the entire program lifetime
   vc1.setCoordinatorHandle(finger1.getTaskHandle());
-  // static Coordinator agent2(vcTaskHandle2, t_controllerTaskHandle2);
-  // coordinator_init(
-  //     vcTaskHandle,
-  //     t_controllerTaskHandle
-  // );
+  /// -----------------------------------------------------------------
+
 
 }  
 

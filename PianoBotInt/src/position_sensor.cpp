@@ -8,7 +8,7 @@
 static constexpr float ADC_MAX = 4095.0f;  // 12-bit ADC
 static constexpr float VREF = 3.3f;  //  
 static const int HALL_PIN = 32; // was 35 in old iteration  
-
+volatile float current_position = 0;
 //task handle
 static TaskHandle_t hallReadTaskHandle = nullptr;
 
