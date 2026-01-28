@@ -1,60 +1,67 @@
 #include "vc_controller.h"
-#include "position_sensor.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "global.h"
-#include "driver/ledc.h"
-// #include "driver/adc.h"
 
+// Constructor
+VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
+                                         TaskHandle_t coordinator_handle,
+                                         float kp, float ki, float kd,
+                                        int* start, int* end)
+    : PWM_PIN(pwm_pin), DIR_PIN(dir_pin), PWM_CHANNEL(pwm_channel),
+      coordinatorTaskHandle(coordinator_handle),
+      Kp(kp), Ki(ki), Kd(kd), 
+      next_note_ptr(start), end_addr(end),start_addr(start), 
+{    
+    //initialize pins to motor driver
+    pinMode(DIR_PIN, OUTPUT);
+    ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
+    ledcAttachPin(PWM_PIN, PWM_CHANNEL);
 
-//hall sensor voltage at respective positions
-const float PRESSED = 1.81f;
-const float RELEASED = 1.08f;
+    init_timers();
 
-//pid vals
-static float Kp = 0.0f;
-static float Ki = 0.0f;
-static float Kd = 0.0f;
+    //initialize linear position sensor
+    init_sensor();
 
-static float target_pos = 0.0f;
-static float previous_error = 0.0f;
-static float integral = 0.0f; 
-static const float dt = 0.002f; //loop time in seconds
-// static int ctrl_pwm = 0; //should this be volatile ?
+    //create controller task, note playing
+    xTaskCreatePinnedToCore(
+        &VoiceCoilController::controllerTaskEntry,
+        "VoiceCoilTask",
+        4096, //stack size
+        this, //params
+        1, //higher priority
+        &vcTaskHandle, //task handle
+        1 //core
+    );
 
+}
 
-//task config
-TaskHandle_t vcTaskHandle = nullptr;
+//private methods 
 
-//init shared variables
-volatile float current_position = 0.0f;
+void setCoordinatorHandle(TaskHandle_t handle) {
+    coordinatorTaskHandle = handle;
+}
 
+//initializes finger pwm off timer
+void VoiceCoilController::init_timers() {
+    voice_coil_timer = xTimerCreate(
+        "note_timer",
+        pdMS_TO_TICKS(10),
+        pdFALSE,        // one-shot
+        this,
+        note_timer_cb //notifies done
+    );
 
-//esp32 i/o pins for voice coil driver
-#define PWM_PIN 5
-#define DIR_PIN 2
-#define PWM_CHANNEL 0
-#define PWM_FREQ 20000 //20kHz
-#define PWM_RES 8 //duty 0 to 255
+    finger_up_timer = xTimerCreate(
+        "finger_up_timer",
+        pdMS_TO_TICKS(100),
+        pdFALSE,        // one-shot
+        this,
+        finger_up_cb //notifies done
+    );
+}
 
-//one shot timers  
-static TimerHandle_t voice_coil_timer;//10 ms
-static TimerHandle_t finger_up_timer; //100 ms
-#define NOTE_DONE     (1 << 0) //timer flag
-#define FINGER_UP_DONE (1 << 1)
-
-
-//PWM control values for finger positions
-enum PWM_t {
-    UP = -100,
-    DOWN = 200,
-    REST = 0
-};
 
 //sends pwm signal to voice coil
 //args: ctrl_pwm , between -255 to 255
-void send_pwm(int ctrl_pwm){
+void VoiceCoilController::send_pwm(int ctrl_pwm){
     
     digitalWrite(DIR_PIN, ctrl_pwm <= 0); 
     ledcWrite(PWM_CHANNEL,  abs(ctrl_pwm));
@@ -64,20 +71,22 @@ void send_pwm(int ctrl_pwm){
 }
 
 //timer callback(mandatory)
-static void note_timer_cb(TimerHandle_t xTimer)
+void VoiceCoilController::note_timer_cb(TimerHandle_t xTimer)
 {
+    auto self = static_cast<VoiceCoilController*>(pvTimerGetTimerID(xTimer));
     // Notify finger task that motion is complete
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     //set correct flag
-    xTaskNotifyFromISR(vcTaskHandle, NOTE_DONE, eSetBits, &xHigherPriorityTaskWoken);
+    xTaskNotifyFromISR(self->vcTaskHandle, NOTE_DONE, eSetBits, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-static void finger_up_cb(TimerHandle_t xTimer)
-{
+void VoiceCoilController::finger_up_cb(TimerHandle_t xTimer) {
+    auto self = static_cast<VoiceCoilController*>(pvTimerGetTimerID(xTimer));
+
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     //sets flag
-    xTaskNotifyFromISR(vcTaskHandle, FINGER_UP_DONE, eSetBits, &xHigherPriorityTaskWoken);
+    xTaskNotifyFromISR(self->vcTaskHandle, FINGER_UP_DONE, eSetBits, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
@@ -110,31 +119,14 @@ static void finger_up_cb(TimerHandle_t xTimer)
 
 // }
 
-//initializes finger pwm off timer
-void finger_timer_init(void)
-{
-    voice_coil_timer = xTimerCreate(
-        "note_timer",
-        pdMS_TO_TICKS(10),
-        pdFALSE,        // one-shot
-        NULL,
-        note_timer_cb //notifies done
-    );
-}
 
-void finger_up_timer_init(void)
-{
-    finger_up_timer = xTimerCreate(
-        "finger_up_timer",
-        pdMS_TO_TICKS(100),
-        pdFALSE,        // one-shot
-        NULL,
-        finger_up_cb //notifies done
-    );
+// task entry wrapper 
+void VoiceCoilController::controllerTaskEntry(void* pvParameters) {
+    static_cast<VoiceCoilController*>(pvParameters)->controllerTask();
 }
 
 //controller task that plays notes 
-static void controllerTask(void* pvParameters){
+void VoiceCoilController::controllerTask() {
 
     while(1){    
         // Wait for command from main controller/coordinator
@@ -177,41 +169,14 @@ static void controllerTask(void* pvParameters){
                 
 
         // Notify coordinator that finger is finished
-        xTaskNotifyGive(coordinatorTaskHandle);
+        // xTaskNotifyGive(coordinatorTaskHandle);
     }
     
 }
 
-//initializes controller with pid values and begins key playing task
-void init_controller(float kp, float ki, float kd){
-    Kp = kp;
-    Ki = ki;
-    Kd = kd;
 
-    //initialize pins to motor driver
-    pinMode(DIR_PIN, OUTPUT);
-    ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
-    ledcAttachPin(PWM_PIN, PWM_CHANNEL);
 
-    //10sm timer, - note array inputs are for 10ms each
-    finger_timer_init();
-    finger_up_timer_init();
 
-    //initialize linear position sensor
-    init_sensor();
-
-    //create controller task, note playing
-    xTaskCreatePinnedToCore(
-        controllerTask,
-        "controllerTask",
-        4096, //stack size
-        nullptr, //params
-        1, //higher priority
-        &vcTaskHandle, //task handle
-        1 //core
-    );
-
-}
 
 
 
