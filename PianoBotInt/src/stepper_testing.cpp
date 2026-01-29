@@ -13,7 +13,7 @@ void back_and_forth_test(int DIR_PIN, int STEP_PIN){
     while(1){   
         digitalWrite(DIR_PIN, dirr); //false = right
 
-        for(int i =0; i<250; i++){
+        for(int i =0; i<3200; i++){
             digitalWrite(STEP_PIN, HIGH);
             vTaskDelay(pdMS_TO_TICKS(2));    
             digitalWrite(STEP_PIN, LOW);
@@ -33,9 +33,10 @@ void stepper_trap(double vmax, double acc, double dist){
     int acc_step = (int) (acc*spm); // acc in steps per sec^2
     int dist_step = (int) (dist*spm); // distance travel in steps
 
+    stepper.setCurrentPosition(0);
     stepper.setMaxSpeed(vstep);
     stepper.setAcceleration(acc_step);
-    // stepper.setMinPulseWidth(40); // oscilloscope 
+    stepper.setMinPulseWidth(40); 
 
     stepper.move(dist_step); // move relative position
 }
@@ -95,7 +96,7 @@ void max_speed_test(){
     const double inc = 0.09163; // increase by 50rpm 
 
     const double r = 0.0175; // pulley radius [m]
-    const double rev = 2; //half rev
+    const double rev = 2; //2 rev
     double dist = 2.0*PI*r*rev;
 
     double acc = 5.0;

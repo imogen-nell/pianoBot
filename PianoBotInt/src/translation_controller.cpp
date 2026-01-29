@@ -160,9 +160,10 @@ void init_t_ctrl(){
     //     &t_controllerTaskHandle,   /* Task handle to keep track of created task */
     //     0);      //CORE 0
 
+    // back_and_forth_test(DIR_PIN, STEP_PIN);
     // max_acc_test();
-    // max_speed_test();
-    missed_step_test();
+    max_speed_test();
+    // missed_step_test();
 }
 
 void update(){
