@@ -36,7 +36,7 @@ void stepper_trap(double vmax, double acc, double dist){
     stepper.setCurrentPosition(0);
     stepper.setMaxSpeed(vstep);
     stepper.setAcceleration(acc_step);
-    stepper.setMinPulseWidth(40); 
+    stepper.setMinPulseWidth(50); 
 
     stepper.move(dist_step); // move relative position
 }
@@ -99,7 +99,7 @@ void max_speed_test(){
     const double rev = 2; //2 rev
     double dist = 2.0*PI*r*rev;
 
-    double acc = 5.0;
+    double acc = 20.0;
 
     while(v <= 0.09163*12.0){ // <=600rpm
         stepper_trap(v, acc, dist);
@@ -133,7 +133,7 @@ void missed_step_test(){
 
     double acc = 5.0;
 
-    while(v <= 0.09163*7){
+    while(v <= 0.09163*12){
         for(int i=0; i<num_moves; i++){
             double dist = steps[i]*mps*factor;
             stepper_trap(v, acc, dist);
