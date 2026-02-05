@@ -38,7 +38,7 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
     rmt_cfg .rmt_mode = RMT_MODE_TX;
     rmt_cfg .channel = config.RMT_CH;
     rmt_cfg .gpio_num = config.STEP_PIN;
-    rmt_cfg .clk_div = 80;                 // 1 µs resolution
+    rmt_cfg .clk_div = 80;                 // 1 µs resolution (1-255), 1 Mhz, default 80 Mhz
     rmt_cfg .mem_block_num = 2;
     rmt_cfg .tx_config.loop_en = false; 
     rmt_cfg .tx_config.carrier_en = false; //disable carrier signal
@@ -149,9 +149,8 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
 
     for(int i = 0; i < steps; i++){
         step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
+        
     }
-
-
     // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately
     //interrupt (callback within ISR) raised when RMT item complete
@@ -168,10 +167,11 @@ rmt_item32_t StepperController::stepPulseAtHz(uint16_t hz )
     uint32_t half_period_us = 1000000UL / hz /2;
 
     rmt_item32_t item;
-    item.level0 = 1; item.duration0 = half_period_us;   //20 us HIGH (25 kHz)
-    item.level1 = 0; item.duration1 = half_period_us;   // 20 us LOW (25 kHz)
+    item.level0 = 1; item.duration0 = half_period_us;   //20 us HIGH 
+    item.level1 = 0; item.duration1 = half_period_us;   // 20 us LOW 
     return item;
 }
+
 
 //home to leftmost key 
 void StepperController::home(){

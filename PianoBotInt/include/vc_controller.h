@@ -23,7 +23,7 @@ private:
     const uint8_t PWM_PIN;
     const uint8_t DIR_PIN;
     const uint8_t PWM_CHANNEL;
-    static constexpr uint32_t PWM_FREQ = 20000;
+    static constexpr uint32_t PWM_FREQ = 30000; // was 20kHz (audible range 20Hz-20Khz)
     static constexpr uint8_t PWM_RES = 8;
 
     // --- Task handle ---

@@ -135,8 +135,8 @@ void VoiceCoilController::controllerTask() {
         //for testing
         Serial.printf("-------------- PLAY key at: %d, %d\n", next_note_ptr- start_addr,*next_note_ptr );
 
-        //play all notes at current key position (without moving stepper) until delimiter 0 is hit
-        while(*next_note_ptr != 0){
+        //play all notes at current key position (without moving stepper) until delimiter -5 is hit
+        while(*next_note_ptr != -5){
             //send to voice coil
             send_pwm(*next_note_ptr);
 
@@ -160,7 +160,7 @@ void VoiceCoilController::controllerTask() {
         xTimerStart(finger_up_timer, 0);
         xTaskNotifyWait(0, FINGER_UP_DONE, NULL, portMAX_DELAY);
 
-        next_note_ptr++; //skip the 0 delimiter
+        next_note_ptr++; //skip the -5 delimiter
         //wrap around song
         if(next_note_ptr >= end_addr){
             Serial.println("Resetting song");

@@ -30,14 +30,14 @@ void Coordinator::coordinatorTaskEntry(void* pvParameters) {
     static_cast<Coordinator*>(pvParameters)->coordinatorTask();
 }
 //actual signatue void Coordinator::coordinatorTask()
+
+
 void Coordinator::coordinatorTask() {
     while(1) {
         // tell stepper to move
-        Serial.println("stepper move cmnd");
         xTaskNotifyGive(stepperTaskHandle);
         // wait until moved
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        Serial.println("finger play cmnd");
         // tell finger to play note
         xTaskNotifyGive(fingerTaskHandle);
         // wait until finger up
