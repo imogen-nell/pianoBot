@@ -36,7 +36,7 @@ void stepper_trap(double vmax, double acc, double dist){
     stepper.setCurrentPosition(0);
     stepper.setMaxSpeed(vstep);
     stepper.setAcceleration(acc_step);
-    stepper.setMinPulseWidth(50); 
+    stepper.setMinPulseWidth(60); 
 
     stepper.move(dist_step); // move relative position
 }
@@ -152,4 +152,8 @@ void missed_step_test(){
         delay(1000);
     }
 
+}
+
+void trapezoidal(){
+    
 }
