@@ -39,9 +39,9 @@ void Coordinator::coordinatorTask() {
         // wait until moved
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         // tell finger to play note
-        xTaskNotifyGive(fingerTaskHandle);
-        // wait until finger up
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        // xTaskNotifyGive(fingerTaskHandle);
+        // // wait until finger up
+        // ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     }
 }
 

@@ -11,7 +11,7 @@ struct StepperConfig {
     gpio_num_t HOME_SWITCH_PIN;
     rmt_channel_t RMT_CH;
     //all finges same stepsper key and max keys for now
-    static constexpr int MAX_KEYS = 15; 
+    static constexpr int MAX_KEYS = 110; 
     static constexpr int STEPS_PER_KEY = 30 * 8;
 };
 
@@ -54,6 +54,7 @@ private:
     void home();
     void move_keys(int keys, direction dirr, uint16_t hz = 10000, bool homing = false);
     static inline rmt_item32_t stepPulseAtHz(uint16_t hz);
+    static inline rmt_item32_t trapezoid(int steps, int stepCount);
 
     // FreeRTOS entry wrapper
     static void taskEntry(void* pvParameters);

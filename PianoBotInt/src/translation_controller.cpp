@@ -117,7 +117,7 @@ void StepperController::run(){
         next_key_ptr++;
         
         if(next_key_ptr >= key_end){
-            Serial.println("Resetting key positions");
+            //Serial.println("Resetting key positions");
             next_key_ptr = key_start; //reset key positions to start of array
         }
         xTaskNotifyGive(coordinatorTaskHandle);
@@ -148,8 +148,8 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     uint32_t steps = keys * config.STEPS_PER_KEY;
 
     for(int i = 0; i < steps; i++){
-        step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
-        
+        // step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
+        step_buffer[i] = trapezoid(steps, i);
     }
     // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately
@@ -167,11 +167,54 @@ rmt_item32_t StepperController::stepPulseAtHz(uint16_t hz )
     uint32_t half_period_us = 1000000UL / hz /2;
 
     rmt_item32_t item;
-    item.level0 = 1; item.duration0 = half_period_us;   //20 us HIGH 
-    item.level1 = 0; item.duration1 = half_period_us;   // 20 us LOW 
+    item.level0 = 1; 
+    item.duration0 = half_period_us;   //20 us HIGH 
+    item.level1 = 0; 
+    item.duration1 = half_period_us;   // 20 us LOW 
     return item;
 }
 
+rmt_item32_t StepperController::trapezoid(int steps, int stepCount){   
+    const double spm = 1600.0/(2.0*PI*0.0175);
+    const double acc = spm*5.0; // steps/sec^2
+    const double vel = spm*0.35; // step/s
+    const double acc_step = (vel*vel) / (2.0*acc);
+    
+    const double cmin = 1000000.0/vel;
+    const double c0 = 0.676*1000000.0*sqrt(2.0/acc);
+    static double cn;
+
+    rmt_item32_t item;
+    int n = stepCount+1;
+    if(n == 1){cn = c0;}
+
+    //acceleration
+    if(n<=acc_step){
+        cn = cn - (2.0*cn) / (4.0*n+1.0);
+    }
+
+    //constant velocity
+    else if (n<=(steps - acc_step) && steps>(2*acc_step)){
+        cn = cmin;
+    }
+
+    //deceleration
+    else{
+        int m = steps - n + 1;
+        cn = cn + (2.0*cn) / (4.0*m+1.0);
+    }
+
+    if(cn < cmin) cn = cmin;
+    uint32_t half_period_us = (uint32_t)(cn/2.0); // 50% duty cycle
+
+    item.level0 = 1; 
+    item.duration0 = half_period_us;    
+    item.level1 = 0; 
+    item.duration1 = half_period_us;   
+            
+
+    return item;
+}
 
 //home to leftmost key 
 void StepperController::home(){
