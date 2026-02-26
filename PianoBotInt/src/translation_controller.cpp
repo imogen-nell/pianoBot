@@ -9,17 +9,14 @@
 StepperController::StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len)
     : config(cfg), next_key_ptr(key_positions_start), key_start(key_positions_start),key_end(key_positions_start+key_arr_len)
 {    
-    Serial.println("Before homing loop");
     pinMode(config.DIR_PIN, OUTPUT);
-
-    Serial.println("Before pullup ");
     pinMode(config.HOME_SWITCH_PIN, INPUT_PULLDOWN);
     // pinMode(config.step_pin, OUTPUT);
 
     //begin homing
-    Serial.println("----------------- homing -----------------"); 
+    Serial.printf("----------------- homing %d -----------------", config.RMT_CH); 
     home();
-    Serial.println("-------------- homing done ---------------");
+    Serial.printf("-------------- homing done %d ---------------", config.RMT_CH);
 
     //allocate once
     step_buffer_capacity = config.MAX_KEYS * config.STEPS_PER_KEY;
@@ -97,8 +94,11 @@ void IRAM_ATTR StepperController::rmt_tx_done_cb(rmt_channel_t channel, void *ar
 void StepperController::run(){
     while(1){
 
-        // Wait for coordinator command
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        // Wait coordinator command (with safety timeout)
+        //prevents inf blocking if coordinator fails
+        if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) == 0){
+            continue;
+        }
 
         //for testing
         // Serial.printf("-------------- MOVING to Key: %d\n", *next_key_ptr);
@@ -123,7 +123,6 @@ void StepperController::run(){
             next_key_ptr = key_start; //reset key positions to start of array
         }
         xTaskNotifyGive(coordinatorTaskHandle);
-        taskYIELD(); 
 
     }  
     

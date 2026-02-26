@@ -130,7 +130,9 @@ void VoiceCoilController::controllerTask() {
 
     while(1){    
         // Wait for command from main controller/coordinator
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) == 0){
+            continue;
+        }
 
         //for testing
         Serial.printf("-------------- PLAY key at: %d, %d\n", next_note_ptr- start_addr,*next_note_ptr );
@@ -166,11 +168,7 @@ void VoiceCoilController::controllerTask() {
             Serial.println("Resetting song");
             next_note_ptr = start_addr; //reset notes to start of array
         }
-                
-
-        // Notify coordinator that finger is finished - done in fingerup ISR 
-        // xTaskNotifyGive(coordinatorTaskHandle);
-        // taskYIELD();                            // yield immediately to scheduler
+            
     }
     
 }
