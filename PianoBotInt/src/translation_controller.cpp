@@ -18,6 +18,7 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
     home();
     Serial.printf("-------------- homing done %d ---------------", config.RMT_CH);
 
+    
     //allocate once
     step_buffer_capacity = config.MAX_KEYS * config.STEPS_PER_KEY;
 
@@ -59,7 +60,6 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
         3,                       /* priority of the task */
         &taskHandle, 
         0);      //CORE 
-
 
 }
 
@@ -119,7 +119,6 @@ void StepperController::run(){
         next_key_ptr++;
         
         if(next_key_ptr >= key_end){
-            //Serial.println("Resetting key positions");
             next_key_ptr = key_start; //reset key positions to start of array
         }
         xTaskNotifyGive(coordinatorTaskHandle);
@@ -147,7 +146,7 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
     uint32_t steps = keys * config.STEPS_PER_KEY;
-    Serial.println("-------------- moving ---------------");
+    // Serial.println("-------------- moving ---------------");
     for(int i = 0; i < steps; i++){
         // step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
         step_buffer[i] = trapezoid(steps, i);

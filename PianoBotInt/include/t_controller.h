@@ -13,6 +13,7 @@ struct StepperConfig {
     //all finges same stepsper key and max keys for now
     static constexpr int MAX_KEYS = 110; 
     static constexpr int STEPS_PER_KEY = 30 * 8;
+
 };
 
 
