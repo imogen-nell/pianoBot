@@ -50,17 +50,16 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
 
     //register RMT callback, called when transmittion ends (after moving stepper)
     rmt_register_tx_end_callback(rmt_tx_done_cb, (void*)this); //pass this for ISR
-
+    
     // create main controller task which takes care of moving to desired key positions
     xTaskCreatePinnedToCore(
         taskEntry,         
         "StepperTask",   
         4096,                    /* Stack size of task */
         this,                   
-        3,                       /* priority of the task */
+        1,                       /* priority of the task */
         &taskHandle, 
-        0);      //CORE 
-
+        1);      //CORE 
 }
 
 // FreeRTOS entry point//same logic and main ctrlr
@@ -73,9 +72,13 @@ void StepperController::taskEntry(void* pvParameters) {
 // callback occurs within the ISR, 
 //the ISR is initiated by hardware when RMT transmission completes
 void IRAM_ATTR StepperController::rmt_tx_done_cb(rmt_channel_t channel, void *arg) {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    
     //notify stepper task, unblock t_ctrlrtask
     auto stepper = static_cast<StepperController*>(arg);
+    if (stepper == nullptr || stepper->taskHandle == nullptr) {
+        return; // Exit safely if the task isn't ready yet
+    }
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     //free mem
     // if (stepper->active_buffer) {
     //     heap_caps_free(stepper->active_buffer);

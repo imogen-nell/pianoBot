@@ -3,8 +3,8 @@
 #include "freertos/task.h"
 #include <HardwareSerial.h>
 
-Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask)
-    : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask)
+Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int flag)
+    : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask), flag(flag)
 {
 
     xTaskCreatePinnedToCore(
@@ -12,9 +12,9 @@ Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask)
         "coordinatorTask",
         4096,
         this,
-        2,
+        3, // higher number = hgher priority
         &coordinatorTaskHandle,
-        0
+        1
     );
 }
 
@@ -39,9 +39,15 @@ void Coordinator::coordinatorTask() {
         // wait until moved
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         // tell finger to play note
-        // xTaskNotifyGive(fingerTaskHandle);
-        // // wait until finger up
-        // ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        xTaskNotifyGive(fingerTaskHandle);
+        // wait until finger up
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        Serial.printf("%d", flag); //for data logger, indicates which finger is playing
+        //yeild cpu
+        taskYIELD(); //only yeilds to tasks of equal or higher proprity (the other fingers)
+        if(flag == 1){
+            vTaskDelay(1000);
+        }
     }
 }
 

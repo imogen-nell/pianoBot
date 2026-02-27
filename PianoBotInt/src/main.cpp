@@ -46,7 +46,7 @@ void setup() {
   static StepperController stepper_1(stepper_cfg_1, keys, KEYS_LEN); // stepper
   static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,note_array,NOTE_LEN ); // voice coil
   // Wire tasks together 
-  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle()); //static' ensures the object lives for the entire program lifetime
+  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle(), 0); //static' ensures the object lives for the entire program lifetime
   vc1.setCoordinatorHandle(finger1.getTaskHandle());
   stepper_1.setCoordinatorHandle(finger1.getTaskHandle());
   /// -----------------------------------------------------------------
@@ -57,7 +57,7 @@ void setup() {
   static StepperController stepper_2(stepper_cfg_2, keys_2, KEYS_LEN); // stepper
   static VoiceCoilController vc2(10, 9, 1, 0.5f, 0.1f, 0.005f,note_array2,NOTE_LEN ); // voice coil
   // // // // Wire tasks together 
-  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle()); //static' ensures the object lives for the entire program lifetime
+  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1); //static' ensures the object lives for the entire program lifetime
   vc2.setCoordinatorHandle(finger2.getTaskHandle());
   stepper_2.setCoordinatorHandle(finger2.getTaskHandle());
   // /// -----------------------------------------------------------------
