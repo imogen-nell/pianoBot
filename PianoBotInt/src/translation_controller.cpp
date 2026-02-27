@@ -9,8 +9,10 @@
 StepperController::StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len)
     : config(cfg), next_key_ptr(key_positions_start), key_start(key_positions_start),key_end(key_positions_start+key_arr_len)
 {    
-
+    Serial.println("Before homing loop");
     pinMode(config.DIR_PIN, OUTPUT);
+
+    Serial.println("Before pullup ");
     pinMode(config.HOME_SWITCH_PIN, INPUT_PULLDOWN);
     // pinMode(config.step_pin, OUTPUT);
 
@@ -146,7 +148,7 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
     uint32_t steps = keys * config.STEPS_PER_KEY;
-
+    Serial.println("-------------- moving ---------------");
     for(int i = 0; i < steps; i++){
         // step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
         step_buffer[i] = trapezoid(steps, i);

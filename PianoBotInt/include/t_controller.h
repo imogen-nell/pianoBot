@@ -20,7 +20,7 @@ struct StepperConfig {
 
 class StepperController {
 public:
-    enum direction {RIGHT,LEFT};
+    enum direction {RIGHT, LEFT};
     
     StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len);
 
