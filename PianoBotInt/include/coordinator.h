@@ -7,9 +7,8 @@ public:
     Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int flag);
     TaskHandle_t getTaskHandle() const; //const: calling fcn doesnt modisy this object
 
-
 private:
-    TaskHandle_t coordinatorTaskHandle;
+    TaskHandle_t coordinatorTaskHandle ;
     TaskHandle_t fingerTaskHandle;
     TaskHandle_t stepperTaskHandle;
     int flag; //for data logging, indicates which finger is playing

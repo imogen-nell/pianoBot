@@ -54,7 +54,7 @@ void setup() {
   /// -------------------- FINGER 2 -----------------------------------
   //init hardware drivers 
   StepperConfig stepper_cfg_2 = { STEP_PIN_2, DIR_PIN_2, HOME_BUTTON_2, RMT_CHANNEL_1};
-  static StepperController stepper_2(stepper_cfg_2, keys_2, KEYS_LEN); // stepper
+  static StepperController stepper_2(stepper_cfg_2, keys, KEYS_LEN); // stepper
   static VoiceCoilController vc2(10, 9, 1, 0.5f, 0.1f, 0.005f,note_array2,NOTE_LEN ); // voice coil
   // // // // Wire tasks together 
   static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1); //static' ensures the object lives for the entire program lifetime

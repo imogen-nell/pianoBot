@@ -12,9 +12,9 @@ Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int 
         "coordinatorTask",
         4096,
         this,
-        3, // higher number = hgher priority
-        &coordinatorTaskHandle,
-        1
+        2, // lower priority than worker tasks to ensure it yeilds to them when waiting for notifications, but high enough to run as soon as workers are done
+        &this->coordinatorTaskHandle,
+        flag
     );
 }
 
@@ -44,9 +44,10 @@ void Coordinator::coordinatorTask() {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         Serial.printf("%d", flag); //for data logger, indicates which finger is playing
         //yeild cpu
-        taskYIELD(); //only yeilds to tasks of equal or higher proprity (the other fingers)
+        // taskYIELD(); //only yeilds to tasks of equal or higher proprity (the other fingers), may be bttter to use vTaskDelay to allow lower priority tasks (like data logger) to run and print between notes, also prevents starvation of other tasks
+        vTaskDelay(pdMS_TO_TICKS(10)); //small delay to prevent starvation of other tasks, also gives time for serial print to go through before next note (for data logger)
         if(flag == 1){
-            vTaskDelay(1000);
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }
 }

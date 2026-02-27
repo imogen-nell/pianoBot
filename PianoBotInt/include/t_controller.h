@@ -27,6 +27,9 @@ public:
 
     TaskHandle_t getTaskHandle() const { return taskHandle; }
     void setCoordinatorHandle(TaskHandle_t handle){this->coordinatorTaskHandle = handle;};
+    
+    static StepperController* instances[2]; // Array of pointers ( 2 for 2 fingers)
+    static void IRAM_ATTR global_rmt_tx_done_cb(rmt_channel_t channel, void *arg);
 
 
 private:

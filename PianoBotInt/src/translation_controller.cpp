@@ -4,7 +4,7 @@
 #include "freertos/semphr.h"
 #include "t_controller.h"
 #include "driver/rmt.h"
-
+StepperController* StepperController::instances[2] = {nullptr};
 //init stepper motor controller
 StepperController::StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len)
     : config(cfg), next_key_ptr(key_positions_start), key_start(key_positions_start),key_end(key_positions_start+key_arr_len)
@@ -29,7 +29,10 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
 
     assert(step_buffer);
 
+    
+
     // RMT channel config
+    instances[config.RMT_CH] = this; //Store this instance in the global lookup table
     //RMT -remote- module driver used to generate step pulses 
     //(waveform) with highly specific pulse duration 
     rmt_config_t rmt_cfg  = {}; //produced HIGH for X ticks and LOW for Y ticks
@@ -49,17 +52,20 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
     rmt_driver_install(rmt_cfg.channel, 0, 0); //RX buffer not used, default flags 
 
     //register RMT callback, called when transmittion ends (after moving stepper)
-    rmt_register_tx_end_callback(rmt_tx_done_cb, (void*)this); //pass this for ISR
+    // rmt_register_tx_end_callback(rmt_tx_done_cb, (void*)this); //pass this for ISR
     
+    // Register the callback ONCE (it's okay to call it multiple times, 
+    // but they will all point to the same static dispatcher now)
+    rmt_register_tx_end_callback(StepperController::global_rmt_tx_done_cb, nullptr);
     // create main controller task which takes care of moving to desired key positions
     xTaskCreatePinnedToCore(
         taskEntry,         
         "StepperTask",   
-        4096,                    /* Stack size of task */
+        4096,        //task Stack size 
         this,                   
-        1,                       /* priority of the task */
+        3,       //higher priority for workers 
         &taskHandle, 
-        1);      //CORE 
+        config.RMT_CH == 0 ? 0 : 1);      //CORE 
 }
 
 // FreeRTOS entry point//same logic and main ctrlr
@@ -71,19 +77,16 @@ void StepperController::taskEntry(void* pvParameters) {
 //IRAM_ATTR : RMT TX done ISR
 // callback occurs within the ISR, 
 //the ISR is initiated by hardware when RMT transmission completes
-void IRAM_ATTR StepperController::rmt_tx_done_cb(rmt_channel_t channel, void *arg) {
+void IRAM_ATTR StepperController::global_rmt_tx_done_cb(rmt_channel_t channel, void *arg) {
+    // Serial.printf("RMT TX done on channel %d, notifying stepper task at %p\n", channel, arg);
     
-    //notify stepper task, unblock t_ctrlrtask
-    auto stepper = static_cast<StepperController*>(arg);
-    if (stepper == nullptr || stepper->taskHandle == nullptr) {
-        return; // Exit safely if the task isn't ready yet
-    }
+    // Look up the correct object using the channel number provided by hardware
+    StepperController* stepper = instances[channel];
+
+    if (stepper == nullptr || stepper->taskHandle == nullptr) return;
+
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    //free mem
-    // if (stepper->active_buffer) {
-    //     heap_caps_free(stepper->active_buffer);
-    //     stepper->active_buffer = nullptr;
-    // }
+
     xTaskNotifyFromISR(
         stepper->taskHandle, // task to notify
         0, // no value

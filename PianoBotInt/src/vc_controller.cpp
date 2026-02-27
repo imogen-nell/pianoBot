@@ -24,9 +24,9 @@ VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8
         "VoiceCoilTask",
         4096, //stack size
         this, //params
-        1, //lower priority
+        3, //higher priority
         &vcTaskHandle, //task handle
-        1 //core
+        pwm_channel //core
     );
 
 }
