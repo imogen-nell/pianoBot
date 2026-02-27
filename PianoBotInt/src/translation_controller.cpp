@@ -50,9 +50,6 @@ StepperController::StepperController(const StepperConfig& cfg, int* key_position
 
     rmt_config(&rmt_cfg );
     rmt_driver_install(rmt_cfg.channel, 0, 0); //RX buffer not used, default flags 
-
-    //register RMT callback, called when transmittion ends (after moving stepper)
-    // rmt_register_tx_end_callback(rmt_tx_done_cb, (void*)this); //pass this for ISR
     
     // Register the callback ONCE (it's okay to call it multiple times, 
     // but they will all point to the same static dispatcher now)
@@ -98,6 +95,7 @@ void IRAM_ATTR StepperController::global_rmt_tx_done_cb(rmt_channel_t channel, v
 
 //stepper task to move to target positions
 void StepperController::run(){
+
     while(1){
 
         // Wait coordinator command (with safety timeout)
@@ -226,21 +224,25 @@ rmt_item32_t StepperController::trapezoid(int steps, int stepCount){
 void StepperController::home(){
     pinMode(config.STEP_PIN, OUTPUT);
     digitalWrite(config.DIR_PIN, direction::LEFT);
-    //move left until home switch is hit
+    //move left until hm switch is hit
     while (digitalRead(config.HOME_SWITCH_PIN) == LOW) {
         digitalWrite(config.STEP_PIN, HIGH);
         vTaskDelay(pdMS_TO_TICKS(1));    
         digitalWrite(config.STEP_PIN, LOW);
         vTaskDelay(pdMS_TO_TICKS(1)); 
-        //no debounce rn:
-        // if (digitalRead(config.HOME_SWITCH_PIN) == HIGH) {
-        //     delay(1); // small delay to filter bounce
-        //     if (digitalRead(config.HOME_SWITCH_PIN) == HIGH) {
-        //         current_key = 0; //reset position
-        //         return;
-        //     }
-        // }
     }
+
     //update positoin
     current_key = 0;
+    
+    digitalWrite(config.DIR_PIN, direction::RIGHT);
+    //move to first key manually
+    Serial.printf("-------------- moving to start key %d ---------------", current_key);
+    for(int i = 0; i < *next_key_ptr * config.STEPS_PER_KEY; i++){
+        digitalWrite(config.STEP_PIN, HIGH);
+        vTaskDelay(pdMS_TO_TICKS(1));    
+        digitalWrite(config.STEP_PIN, LOW);
+        vTaskDelay(pdMS_TO_TICKS(1)); 
+    }
+    current_key = *next_key_ptr;
 }

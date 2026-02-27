@@ -17,8 +17,8 @@ int note_array[NOTE_LEN]= {3, 17, 38, 68, 105, 151, 204, 255, 255, 255, 255, 255
 
 int note_array2[NOTE_LEN]= {3, 17, 38, 68, 105, 151, 204, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 3, 17, 38, 68, 105, 151, 204, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 3, 17, 38, 68, 105, 151, 204, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 3, 17, 38, 68, 105, 151, 204, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 3, 17, 38, 68, 105, 151, 204, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 4 , 0, 3, 17, 38, 68, 105, 151, 204, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 5, 12, 22, 34, 49, 66, 87, 110, 135, 164, 195, 229, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 5, 12, 22, 34, 49, 66, 87, 110, 135, 164, 195, 229, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 5, 12, 22, 34, 49, 66, 87, 110, 135, 164, 195, 229, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 5, 12, 22, 34, 49, 66, 87, 110, 135, 164, 195, 229, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 8, 18, 32, 50, 71, 97, 126, 159, 196, 237, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 8, 18, 32, 50, 71, 97, 126, 159, 196, 237, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 8, 18, 32, 50, 71, 97, 126, 159, 196, 237, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 1, 8, 18, 32, 50, 71, 97, 126, 159, 196, 237, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 7, 40, 98, 181, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 7, 40, 98, 181, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 98, 40, 0, 7, 40, 98, 181, 98, 40, 0};
 
-int keys[KEYS_LEN] = {1,2,3, 5,7,7, 5,4,7,2 ,1,3,1,3, 1,3,1};
-int keys_2[KEYS_LEN] = {12,12,13, 15,10,12, 15,14,10,12 ,11,13,11,13, 11,13,11};
+int keys[KEYS_LEN] =  {10,12,13, 15,17,17, 15,14,17,12 ,11,13,11,13, 11,13,11};
+int keys2[KEYS_LEN] = { 2, 4, 5,  7, 9, 9,  7, 6, 9, 4 , 3, 5, 3, 5,  3, 5, 3};
 
 // int keys[KEYS_LEN] = {0};
 
@@ -32,35 +32,36 @@ int keys_2[KEYS_LEN] = {12,12,13, 15,10,12, 15,14,10,12 ,11,13,11,13, 11,13,11};
 #define STEP_PIN_2 GPIO_NUM_19
 #define DIR_PIN_2 GPIO_NUM_22
 //mutex to ensure we do not try to play keys while moving 
-
+EventGroupHandle_t startSync;
 void setup() {
   Serial.begin(115200);
 
-  // next_note_ptr = &note_array[0]; //let next_note_ptr point to first element of note array
-  // next_key_ptr = &keys[0]; // let next_key_ptr point to first element of key position array 
-  
-  /// -------------------- FINGER 1 -----------------------------------
-  //init hardware drivers 
-  
-  StepperConfig stepper_cfg_1 = { STEP_PIN_1, DIR_PIN_1, HOME_BUTTON_1, RMT_CHANNEL_0};//for test
-  static StepperController stepper_1(stepper_cfg_1, keys, KEYS_LEN); // stepper
-  static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,note_array,NOTE_LEN ); // voice coil
-  // Wire tasks together 
-  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle(), 0); //static' ensures the object lives for the entire program lifetime
-  vc1.setCoordinatorHandle(finger1.getTaskHandle());
-  stepper_1.setCoordinatorHandle(finger1.getTaskHandle());
-  /// -----------------------------------------------------------------
+  //create syn obj
+  startSync = xEventGroupCreate(); 
+
 
   /// -------------------- FINGER 2 -----------------------------------
   //init hardware drivers 
   StepperConfig stepper_cfg_2 = { STEP_PIN_2, DIR_PIN_2, HOME_BUTTON_2, RMT_CHANNEL_1};
-  static StepperController stepper_2(stepper_cfg_2, keys, KEYS_LEN); // stepper
+  static StepperController stepper_2(stepper_cfg_2, keys2, KEYS_LEN); // stepper
   static VoiceCoilController vc2(10, 9, 1, 0.5f, 0.1f, 0.005f,note_array2,NOTE_LEN ); // voice coil
   // // // // Wire tasks together 
-  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1); //static' ensures the object lives for the entire program lifetime
+  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1, startSync); //static' ensures the object lives for the entire program lifetime
   vc2.setCoordinatorHandle(finger2.getTaskHandle());
   stepper_2.setCoordinatorHandle(finger2.getTaskHandle());
   // /// -----------------------------------------------------------------
+  /// -------------------- FINGER 1 -----------------------------------
+
+  StepperConfig stepper_cfg_1 = { STEP_PIN_1, DIR_PIN_1, HOME_BUTTON_1, RMT_CHANNEL_0};//for test
+  static StepperController stepper_1(stepper_cfg_1, keys, KEYS_LEN); // stepper
+  static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,note_array,NOTE_LEN ); // voice coil
+  // Wire tasks together 
+  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle(), 0, startSync); //static' ensures the object lives for the entire program lifetime
+  vc1.setCoordinatorHandle(finger1.getTaskHandle());
+  stepper_1.setCoordinatorHandle(finger1.getTaskHandle());
+  /// -----------------------------------------------------------------
+
+
 }  
 
 void loop() {
