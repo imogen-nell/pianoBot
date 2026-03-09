@@ -11,8 +11,8 @@ struct StepperConfig {
     gpio_num_t HOME_SWITCH_PIN;
     rmt_channel_t RMT_CH;
     //all finges same stepsper key and max keys for now
-    static constexpr int MAX_KEYS = 110; 
-    static constexpr int STEPS_PER_KEY = 30 * 8;
+    static constexpr int MAX_KEYS = 25; 
+    static constexpr int STEPS_PER_KEY = 35 * 8*3;
 
 };
 
@@ -23,7 +23,7 @@ class StepperController {
 public:
     enum direction {RIGHT, LEFT};
     
-    StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len);
+    StepperController(const StepperConfig& cfg, const int* key_positions_start, int key_arr_len);
 
     TaskHandle_t getTaskHandle() const { return taskHandle; }
     void setCoordinatorHandle(TaskHandle_t handle){this->coordinatorTaskHandle = handle;};
@@ -43,9 +43,9 @@ private:
 
 
     // key array pointers
-    int* next_key_ptr; //moves through the array 
-    int* const key_start; //const song array for now
-    int* const key_end; //end of keys array
+    const int* next_key_ptr; //moves through the array 
+    const int* key_start; //const song array for now
+    const int* key_end; //end of keys array
 
     // task handle
     TaskHandle_t taskHandle = nullptr;
@@ -56,9 +56,10 @@ private:
 
     // helper
     void home();
-    void move_keys(int keys, direction dirr, uint16_t hz = 10000, bool homing = false);
-    static inline rmt_item32_t stepPulseAtHz(uint16_t hz);
+    void move_keys(int keys, direction dirr, uint16_t hz = 10000);
+    void stepPulseAtHz_continuous(uint16_t hz);
     static inline rmt_item32_t trapezoid(int steps, int stepCount);
+    void rehome();
 
     // FreeRTOS entry wrapper
     static void taskEntry(void* pvParameters);

@@ -24,7 +24,7 @@ void hallReadTask(void* parameter){
         //data logging
         // Serial.printf("Hall,%lu,%.4f\n", millis(), current_position);
         //loop period 1ms
-        vTaskDelay(1 / portTICK_PERIOD_MS); 
+        vTaskDelay(1); 
     }
 }
 

@@ -6,17 +6,18 @@
 #include "driver/rmt.h"
 StepperController* StepperController::instances[2] = {nullptr};
 //init stepper motor controller
-StepperController::StepperController(const StepperConfig& cfg, int* key_positions_start, int key_arr_len)
+StepperController::StepperController(const StepperConfig& cfg, const int* key_positions_start, int key_arr_len)
     : config(cfg), next_key_ptr(key_positions_start), key_start(key_positions_start),key_end(key_positions_start+key_arr_len)
 {    
+    // Serial.printf("starting key pos: %d at %d\n", *next_key_ptr, next_key_ptr);
     pinMode(config.DIR_PIN, OUTPUT);
     pinMode(config.HOME_SWITCH_PIN, INPUT_PULLDOWN);
     // pinMode(config.step_pin, OUTPUT);
 
     //begin homing
-    Serial.printf("----------------- homing %d -----------------", config.RMT_CH); 
+    Serial.printf("----------------- homing %d -----------\n", config.RMT_CH+1); 
     home();
-    Serial.printf("-------------- homing done %d ---------------", config.RMT_CH);
+    // Serial.printf("-------------- homing done %d ---------\n", config.RMT_CH);
 
     
     //allocate once
@@ -95,7 +96,7 @@ void IRAM_ATTR StepperController::global_rmt_tx_done_cb(rmt_channel_t channel, v
 
 //stepper task to move to target positions
 void StepperController::run(){
-
+    // int current_key = 0; //assume starts at key 0 after homing
     while(1){
 
         // Wait coordinator command (with safety timeout)
@@ -114,17 +115,21 @@ void StepperController::run(){
         //move to next key 
         if(key_diff != 0){
             //move (keys, dirrection, step freq. Hz)
-            move_keys(abs(key_diff), (key_diff > 0) ? direction::RIGHT : direction::LEFT, 5000);
+            move_keys(abs(key_diff), (key_diff > 0) ? direction::LEFT : direction::RIGHT, 5000);
             // Wait until RMT transmission finishes (from ISR) - callback will unblock
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         }   
 
         //look at next key position
         next_key_ptr++;
-        
+
         if(next_key_ptr >= key_end){
+            // Serial.printf("finger %d resetting key pos to %d at %d\n", config.RMT_CH, *key_start, key_start);
             next_key_ptr = key_start; //reset key positions to start of array
+            ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);
+            // rehome();
         }
+
         xTaskNotifyGive(coordinatorTaskHandle);
 
     }  
@@ -136,15 +141,17 @@ void StepperController::run(){
 //arguments: keys - number of keys to move
 //           dirr  - direction RIGHT/LEFT
 //           step_time - time between step in ms (default 4ms)
-void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool homing ){
+void StepperController::move_keys(int keys, direction dirr, uint16_t hz ){
     //ensure move is in bounds
-    if (!homing){
-        int target_key = current_key + keys * ((dirr == direction::RIGHT) ? 1 : -1);
-        if(target_key < 0 || target_key > config.MAX_KEYS){
-            Serial.println("-------------- out of bounds move ---------------");
-            return;
-        }
+    //todo: shitty check tbh
+    if(keys < 0 || keys > config.MAX_KEYS){
+        int target_key = current_key + keys * ((dirr == direction::RIGHT) ? -1 : 1);
+
+        Serial.println("-------------- out of bounds move ---------------");
+        Serial.printf("current key: %d, target key: %d, motor: %d\n", current_key, target_key, config.RMT_CH+1);
+        return;
     }
+
 
     digitalWrite(config.DIR_PIN, dirr);
     ets_delay_us(5);  // ESP32-safe microsecond delay
@@ -152,7 +159,6 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     uint32_t steps = keys * config.STEPS_PER_KEY;
     // Serial.println("-------------- moving ---------------");
     for(int i = 0; i < steps; i++){
-        // step_buffer[i] = stepPulseAtHz(hz); //25 kHz step pulse
         step_buffer[i] = trapezoid(steps, i);
     }
     // send step waveform from rmt_item array, NON BLOCKING
@@ -161,21 +167,21 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz , bool h
     rmt_write_items(config.RMT_CH, step_buffer, steps, false);
 
     //update current key position
-    current_key += keys * ((dirr == direction::RIGHT) ? 1 : -1);
+    current_key += keys * ((dirr == direction::RIGHT) ? -1 : 1);
 }
 
 
 
-rmt_item32_t StepperController::stepPulseAtHz(uint16_t hz )
+void StepperController::stepPulseAtHz_continuous(uint16_t hz )
 {
-    uint32_t half_period_us = 1000000UL / hz /2;
+    uint32_t half_period_us = 1000000UL / hz / 2;
 
-    rmt_item32_t item;
-    item.level0 = 1; 
-    item.duration0 = half_period_us;   //20 us HIGH 
-    item.level1 = 0; 
-    item.duration1 = half_period_us;   // 20 us LOW 
-    return item;
+    for(int i = 0; i < step_buffer_capacity; i++){
+        step_buffer[i].level0 = 1;
+        step_buffer[i].duration0 = half_period_us;
+        step_buffer[i].level1 = 0;
+        step_buffer[i].duration1 = half_period_us;
+    }
 }
 
 rmt_item32_t StepperController::trapezoid(int steps, int stepCount){   
@@ -186,7 +192,7 @@ rmt_item32_t StepperController::trapezoid(int steps, int stepCount){
     
     const double cmin = 1000000.0/vel;
     const double c0 = 0.676*1000000.0*sqrt(2.0/acc);
-    static double cn;
+    static double cn; //may cause err sttic 
 
     rmt_item32_t item;
     int n = stepCount+1;
@@ -225,24 +231,71 @@ void StepperController::home(){
     pinMode(config.STEP_PIN, OUTPUT);
     digitalWrite(config.DIR_PIN, direction::LEFT);
     //move left until hm switch is hit
+    //make faster : reduce delay, but may cause missed steps and less accuracy
     while (digitalRead(config.HOME_SWITCH_PIN) == LOW) {
         digitalWrite(config.STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(1));    
+        ets_delay_us(100);
+        // vTaskDelay(pdMS_TO_TICKS(1));    
         digitalWrite(config.STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(1)); 
+        // vTaskDelay(pdMS_TO_TICKS(1)); 
+        ets_delay_us(100);
     }
 
     //update positoin
-    current_key = 0;
-    
+    if(config.RMT_CH == 0){current_key = 32;}
+    else{current_key = 37;}
+
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
-    Serial.printf("-------------- moving to start key %d ---------------", current_key);
-    for(int i = 0; i < *next_key_ptr * config.STEPS_PER_KEY; i++){
+    Serial.printf("-------------- moving motor %d to start key %d, %d keys over ---------------", config.RMT_CH+1, *next_key_ptr, abs(current_key - *next_key_ptr));
+    for(int i = 0; i < abs(current_key - *next_key_ptr) * config.STEPS_PER_KEY; i++){
         digitalWrite(config.STEP_PIN, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(1));    
+        ets_delay_us(100); 
         digitalWrite(config.STEP_PIN, LOW);
-        vTaskDelay(pdMS_TO_TICKS(1)); 
+        ets_delay_us(100);
     }
+    // Serial.printf("--------------  motor %d at start key %d ---------------", config.RMT_CH+1, *next_key_ptr);
+
+
     current_key = *next_key_ptr;
+}
+
+//rehome steepper ( after RMT is set up )
+//should not notify main ctrlr until rehoming complete 
+void StepperController::rehome( ){
+    Serial.printf("---- REHOME Motor %d ----\n", config.RMT_CH+1);
+
+    //all home buttons placed on left looking from behind piano to robot
+
+    digitalWrite(config.DIR_PIN, direction::LEFT);
+    ets_delay_us(5);  
+
+    //populate buffer 
+    rmt_write_items(config.RMT_CH,
+                    step_buffer,
+                    step_buffer_capacity,
+                    false);
+    stepPulseAtHz_continuous(25000);
+        // monitor home switch
+    while(digitalRead(config.HOME_SWITCH_PIN) == LOW){
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+    // stop stepping immediately - home hit 
+    rmt_tx_stop(config.RMT_CH);
+
+
+
+    //update current key position
+    if(config.RMT_CH == 0){
+        current_key = 32;
+    }
+    else{
+        current_key = 37;
+    }
+
+    // and move back to start key using normal move (updates current_key)
+    move_keys(abs(*next_key_ptr - current_key), direction::RIGHT, 5000);
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    next_key_ptr++;
 }

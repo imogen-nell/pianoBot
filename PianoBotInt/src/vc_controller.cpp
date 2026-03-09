@@ -3,15 +3,22 @@
 // Constructor
 VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
                                          float kp, float ki, float kd,
-                                        int* start, int notes_arr_len)
+                                        const int* start, int notes_arr_len)
     : PWM_PIN(pwm_pin), DIR_PIN(dir_pin), PWM_CHANNEL(pwm_channel),
       Kp(kp), Ki(ki), Kd(kd), 
       next_note_ptr(start), end_addr(start+notes_arr_len),start_addr(start)
-{    
+{               
+    
+    // Serial.printf("---setting notes to %d at %d\n", *start_addr, start_addr);
+
     //initialize pins to motor driver
     pinMode(DIR_PIN, OUTPUT);
     ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
     ledcAttachPin(PWM_PIN, PWM_CHANNEL);
+
+    // xTimerStop(finger_up_timer, 0);     
+    // xTimerStart(finger_up_timer, 0);
+    // xTaskNotifyWait(0, FINGER_UP_DONE, NULL, portMAX_DELAY);
 
     init_timers();
 
@@ -127,8 +134,8 @@ void VoiceCoilController::controllerTaskEntry(void* pvParameters) {
 
 //controller task that plays notes 
 void VoiceCoilController::controllerTask() {
-
     while(1){    
+        
         // Wait for command from main controller/coordinator
         if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) == 0){
             continue;
@@ -138,7 +145,7 @@ void VoiceCoilController::controllerTask() {
         // Serial.printf("-------------- PLAY key at: %d, %d\n", next_note_ptr- start_addr,*next_note_ptr );
 
         //play all notes at current key position (without moving stepper) until delimiter -5 is hit
-        while(*next_note_ptr != 0){
+        while(*next_note_ptr != -5){
             //send to voice coil
             send_pwm(*next_note_ptr);
 
@@ -163,10 +170,15 @@ void VoiceCoilController::controllerTask() {
         xTaskNotifyWait(0, FINGER_UP_DONE, NULL, portMAX_DELAY);
 
         next_note_ptr++; //skip the -5 delimiter
-        //wrap around song
+        if(PWM_CHANNEL == 0){        
+            // Serial.printf("finger %d next notes %d at %d\n",PWM_CHANNEL+1, *next_note_ptr, next_note_ptr);
+        }        
         if(next_note_ptr >= end_addr){
-            // Serial.println("Resetting song");
+            // Serial.printf("F%d resetting notes to %d at %d\n", PWM_CHANNEL+1, *start_addr, start_addr);
+
             next_note_ptr = start_addr; //reset notes to start of array
+            // Clear any pending notifications 
+            ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);
         }
             
     }

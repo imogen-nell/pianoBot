@@ -13,7 +13,7 @@ public:
     //constructor
     VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
                         float kp, float ki, float kd,
-                        int* next_note_ptr, int notes_arr_len);
+                        const int* next_note_ptr, int notes_arr_len);
 
     TaskHandle_t getTaskHandle() const { return vcTaskHandle; }
     void setCoordinatorHandle(TaskHandle_t handle);
@@ -26,14 +26,14 @@ private:
     static constexpr uint32_t PWM_FREQ = 30000; // was 20kHz (audible range 20Hz-20Khz)
     static constexpr uint8_t PWM_RES = 8;
 
-    // --- Task handle ---
+    // --- instant specific Task handle ---
     TaskHandle_t vcTaskHandle = nullptr;
     TaskHandle_t coordinatorTaskHandle = nullptr;
     
     // key array pointers
-    int* next_note_ptr;
-    int* start_addr;
-    int* end_addr; //end of keys array
+    const int* next_note_ptr;
+    const int* start_addr;
+    const int* end_addr; //end of keys array
 
     // --- PID ---
     float Kp, Ki, Kd;
