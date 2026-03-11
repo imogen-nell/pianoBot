@@ -12,7 +12,7 @@ struct StepperConfig {
     rmt_channel_t RMT_CH;
     //all finges same stepsper key and max keys for now
     static constexpr int MAX_KEYS = 25; 
-    static constexpr int STEPS_PER_KEY = 35 * 8*3;
+    static constexpr int STEPS_PER_KEY = 35 * 4*3;
 
 };
 
@@ -23,7 +23,7 @@ class StepperController {
 public:
     enum direction {RIGHT, LEFT};
     
-    StepperController(const StepperConfig& cfg, const int* key_positions_start, int key_arr_len);
+    StepperController(const StepperConfig& cfg, const int* key_positions_start, int key_arr_len, EventGroupHandle_t syncGroup);
 
     TaskHandle_t getTaskHandle() const { return taskHandle; }
     void setCoordinatorHandle(TaskHandle_t handle){this->coordinatorTaskHandle = handle;};
@@ -33,8 +33,11 @@ public:
 
 
 private:
+    //rehome sync
+    EventGroupHandle_t syncStartEventGroup;
     // hardware config
     StepperConfig config;
+    int homing = 0;
 
     // current position
     int current_key = 0;
@@ -49,7 +52,7 @@ private:
 
     // task handle
     TaskHandle_t taskHandle = nullptr;
-    TaskHandle_t coordinatorTaskHandle = nullptr;
+    TaskHandle_t coordinatorTaskHandle = NULL;
 
     // main stepper task loop
     void run();
@@ -66,4 +69,8 @@ private:
 
     // RMT callback
     static void IRAM_ATTR rmt_tx_done_cb(rmt_channel_t channel, void* arg);
+    //home button isr
+
+    // void setupHomeInterrupt();//internal hardware setup
+    // static void IRAM_ATTR home_switch_isr(void* arg); // static for gpio isr compatibilit
 };

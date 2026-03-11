@@ -50,6 +50,11 @@ void Coordinator::coordinatorTask() {
             portMAX_DELAY    // Wait forever until the other motor catches up
         );
     }
+
+    //reset event bits
+    thisBit = 0;
+
+    
     while(1) {
         // tell stepper to move
         xTaskNotifyGive(stepperTaskHandle);

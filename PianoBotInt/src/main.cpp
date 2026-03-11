@@ -44,33 +44,39 @@ static const int keys_bbbs[KEYS_LEN]  =    {12, 17, 16, 15,14,13, 12};
 #define DIR_PIN_2 GPIO_NUM_22
 //mutex to ensure we do not try to play keys while moving 
 EventGroupHandle_t startSync;
+EventGroupHandle_t rehomeSync;
 void setup() {
   Serial.begin(115200);
 
   //create syn obj
   startSync = xEventGroupCreate(); 
+  rehomeSync = xEventGroupCreate();
 
 
-  /// -------------------- FINGER 2 -----------------------------------
-  //init hardware drivers 
-  StepperConfig stepper_cfg_2 = { STEP_PIN_2, DIR_PIN_2, HOME_BUTTON_2, RMT_CHANNEL_1};
-  static StepperController stepper_2(stepper_cfg_2, keys2_bbbs, KEYS_LEN); // stepper
-  static VoiceCoilController vc2(9, 10, 1, 0.5f, 0.1f, 0.005f,notes2_bbbs,NOTE_LEN ); // voice coil
-  // // // // Wire tasks together 
-  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1, startSync); //static' ensures the object lives for the entire program lifetime
-  vc2.setCoordinatorHandle(finger2.getTaskHandle());
-  stepper_2.setCoordinatorHandle(finger2.getTaskHandle());
-  // /// -----------------------------------------------------------------
-  /// -------------------- FINGER 1 -----------------------------------
+    /// -------------------- FINGER 1 -----------------------------------
 
   StepperConfig stepper_cfg_1 = { STEP_PIN_1, DIR_PIN_1, HOME_BUTTON_1, RMT_CHANNEL_0};//for test
-  static StepperController stepper_1(stepper_cfg_1, keys_bbbs, KEYS_LEN); // stepper
+  static StepperController stepper_1(stepper_cfg_1, keys_bbbs, KEYS_LEN, rehomeSync); // stepper
   static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,notes_bbbs,NOTE_LEN ); // voice coil
   // Wire tasks together 
   static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle(), 0, startSync); //static' ensures the object lives for the entire program lifetime
   vc1.setCoordinatorHandle(finger1.getTaskHandle());
   stepper_1.setCoordinatorHandle(finger1.getTaskHandle());
   /// -----------------------------------------------------------------
+
+
+    /// -------------------- FINGER 2 -----------------------------------
+  //init hardware drivers 
+  StepperConfig stepper_cfg_2 = { STEP_PIN_2, DIR_PIN_2, HOME_BUTTON_2, RMT_CHANNEL_1};
+  static StepperController stepper_2(stepper_cfg_2, keys2_bbbs, KEYS_LEN, rehomeSync); // stepper
+  static VoiceCoilController vc2(9, 10, 1, 0.5f, 0.1f, 0.005f,notes2_bbbs,NOTE_LEN ); // voice coil
+  // // // // Wire tasks together 
+  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1, startSync); //static' ensures the object lives for the entire program lifetime
+  vc2.setCoordinatorHandle(finger2.getTaskHandle());
+  stepper_2.setCoordinatorHandle(finger2.getTaskHandle());
+  // /// -----------------------------------------------------------------
+
+
 
 
 }  
