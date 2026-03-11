@@ -56,13 +56,6 @@ StepperController::StepperController(const StepperConfig& cfg, const int* key_po
     // but they will all point to the same static dispatcher now)
     rmt_register_tx_end_callback(StepperController::global_rmt_tx_done_cb, nullptr);
     
-    //init home button isrs for rehoming 
-    // Inside StepperController constructor or init
-    // StepperController::setupHomeInterrupt();
-    // this line is unique per instance/finger -- 'this' 
-    // gpio_isr_handler_add((gpio_num_t)config.HOME_SWITCH_PIN, StepperController::home_switch_isr, (void*)this);
-    
-    
     // create main controller task which takes care of moving to desired key positions
     xTaskCreatePinnedToCore(
         taskEntry,         
@@ -183,11 +176,11 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz ){
 
 
 
-void StepperController::stepPulseAtHz_continuous(uint16_t hz )
+void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
 {
     uint32_t half_period_us = 1000000UL / hz / 2;
 
-    for(int i = 0; i < step_buffer_capacity; i++){
+    for(int i = 0; i < steps; i++){
         step_buffer[i].level0 = 1;
         step_buffer[i].duration0 = half_period_us;
         step_buffer[i].level1 = 0;
@@ -281,14 +274,11 @@ void StepperController::rehome( ){
     digitalWrite(config.DIR_PIN, direction::LEFT);
     ets_delay_us(5); 
 
-    uint32_t steps = 35; // small move  
-    uint32_t half_period_us = 1000000UL / 5000 / 2;
-    for(int i = 0; i < steps; i++){
-        step_buffer[i].level0 = 1;
-        step_buffer[i].duration0 = half_period_us;
-        step_buffer[i].level1 = 0;
-        step_buffer[i].duration1 = half_period_us;
-    }
+
+    uint16_t steps = 35; // small move  
+    uint16_t hz = 5000; // fast move
+    populate_step_buffer(steps, hz);
+
     while(digitalRead(config.HOME_SWITCH_PIN) == LOW) {
         //  true to wait for all items to be sent before returning
         rmt_write_items(config.RMT_CH, step_buffer, steps, homing == 1);
@@ -310,22 +300,14 @@ void StepperController::rehome( ){
         digitalWrite(config.DIR_PIN, (key_diff > 0) ? direction::LEFT : direction::RIGHT);
         ets_delay_us(10);
 
-        // 2. Calculate TOTAL steps needed
         uint32_t total_steps_needed = abs(key_diff) * config.STEPS_PER_KEY;
         
-        // 3. Use a small, SAFE chunk of steps (e.g., 64 at a time)
-        // This ensures we never overflow the buffer
-        uint32_t chunk_size = 64; 
-        uint32_t half_period_us = 1000000UL / 5000 / 2;
-        
-        for(int i = 0; i < chunk_size; i++){
-            step_buffer[i].level0 = 1;
-            step_buffer[i].duration0 = half_period_us;
-            step_buffer[i].level1 = 0;
-            step_buffer[i].duration1 = half_period_us;
-        }
+        // Use a small, SAFE chunk of steps
+        //  ensures we never overflow the buffer
+        uint16_t chunk_size = 64; 
+        populate_step_buffer(chunk_size, hz);
 
-        // 4. Send chunks until done
+        // Send chunks until done
         uint32_t steps_sent = 0;
         while(steps_sent < total_steps_needed) {
             uint32_t to_send = (total_steps_needed - steps_sent > chunk_size) ? chunk_size : (total_steps_needed - steps_sent);

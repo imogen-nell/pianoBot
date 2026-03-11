@@ -60,7 +60,7 @@ private:
     // helper
     void home();
     void move_keys(int keys, direction dirr, uint16_t hz = 10000);
-    void stepPulseAtHz_continuous(uint16_t hz);
+    void populate_step_buffer(uint16_t steps, uint16_t hz);
     static inline rmt_item32_t trapezoid(int steps, int stepCount);
     void rehome();
 
