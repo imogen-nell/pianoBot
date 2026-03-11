@@ -45,12 +45,20 @@ static const int keys_bbbs[KEYS_LEN]  =    {12, 17, 16, 15,14,13, 12};
 //mutex to ensure we do not try to play keys while moving 
 EventGroupHandle_t startSync;
 EventGroupHandle_t rehomeSync;
+EventGroupHandle_t playSyncGroup;
+
+// Define bits for each finger
+#define FINGER_1_READY_BIT (1 << 0)
+#define FINGER_2_READY_BIT (1 << 1)
+#define ALL_FINGERS_READY  (FINGER_1_READY_BIT | FINGER_2_READY_BIT)
+
 void setup() {
   Serial.begin(115200);
 
   //create syn obj
   startSync = xEventGroupCreate(); 
   rehomeSync = xEventGroupCreate();
+  playSyncGroup = xEventGroupCreate();
 
 
     /// -------------------- FINGER 1 -----------------------------------
@@ -59,7 +67,7 @@ void setup() {
   static StepperController stepper_1(stepper_cfg_1, keys_bbbs, KEYS_LEN, rehomeSync); // stepper
   static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,notes_bbbs,NOTE_LEN ); // voice coil
   // Wire tasks together 
-  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle(), 0, startSync); //static' ensures the object lives for the entire program lifetime
+  static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle(), 0, startSync, playSyncGroup, FINGER_1_READY_BIT, ALL_FINGERS_READY); //static' ensures the object lives for the entire program lifetime
   vc1.setCoordinatorHandle(finger1.getTaskHandle());
   stepper_1.setCoordinatorHandle(finger1.getTaskHandle());
   /// -----------------------------------------------------------------
@@ -71,7 +79,7 @@ void setup() {
   static StepperController stepper_2(stepper_cfg_2, keys2_bbbs, KEYS_LEN, rehomeSync); // stepper
   static VoiceCoilController vc2(9, 10, 1, 0.5f, 0.1f, 0.005f,notes2_bbbs,NOTE_LEN ); // voice coil
   // // // // Wire tasks together 
-  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1, startSync); //static' ensures the object lives for the entire program lifetime
+  static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1, startSync, playSyncGroup, FINGER_2_READY_BIT, ALL_FINGERS_READY); //static' ensures the object lives for the entire program lifetime
   vc2.setCoordinatorHandle(finger2.getTaskHandle());
   stepper_2.setCoordinatorHandle(finger2.getTaskHandle());
   // /// -----------------------------------------------------------------
