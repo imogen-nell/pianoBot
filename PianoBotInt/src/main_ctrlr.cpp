@@ -4,8 +4,8 @@
 #include <HardwareSerial.h>
 #include "freertos/event_groups.h"
 
-Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int flag, EventGroupHandle_t eventGroup, EventGroupHandle_t playSyncGroup, EventBits_t mySyncBit, EventBits_t allFingersMask)
-    : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask), syncStartEventGroup(eventGroup), playSyncGroup(playSyncGroup), mySyncBit(mySyncBit), allFingersMask(allFingersMask)
+Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int coreID, EventGroupHandle_t playSyncGroup, EventBits_t mySyncBit, EventBits_t allFingersMask)
+    : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask), playSyncGroup(playSyncGroup), mySyncBit(mySyncBit), allFingersMask(allFingersMask)
 {
 
     xTaskCreatePinnedToCore(
@@ -15,7 +15,7 @@ Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int 
         this,
         2, // lower priority than worker tasks to ensure it yeilds to them when waiting for notifications, but high enough to run as soon as workers are done
         &this->coordinatorTaskHandle,
-        flag
+        coreID
     );
 }
 
@@ -30,32 +30,14 @@ void Coordinator::coordinatorTaskEntry( void* pvParameters) {
     //convert void* back to ptr to coordinator object for fcn/var access
     static_cast<Coordinator*>(pvParameters)->coordinatorTask();
 }
-//actual signatue void Coordinator::coordinatorTask()
+
 
 
 void Coordinator::coordinatorTask() {
-    // //determine bits 
-    // const EventBits_t finger1Bit = (1<<0);
-    // const EventBits_t finger2Bit = (1<<1);
-    // const EventBits_t allReadyBits = finger1Bit | finger2Bit;
-    // EventBits_t thisBit = (flag == 0) ? finger1Bit : finger2Bit;
 
-    // //BARRIER
-    // //wait until both fingers are ready (have hit their barrier/ moved to first position and are ready to play)
-    // if (syncStartEventGroup != NULL) {
-    //     xEventGroupSync(
-    //         syncStartEventGroup,
-    //         thisBit,           // Set my bit
-    //         allReadyBits,    // Wait for both
-    //         portMAX_DELAY    // Wait forever until the other motor catches up
-    //     );
-    // }
-
-    //reset event bits
-    // thisBit = 0;
-    if (syncStartEventGroup != NULL) {
+    if (playSyncGroup != NULL) {
         xEventGroupSync(
-            syncStartEventGroup,
+            playSyncGroup,
             mySyncBit,        // Use the instance bit passed in constructor
             allFingersMask,   // Use the mask passed in constructor
             portMAX_DELAY
@@ -64,12 +46,10 @@ void Coordinator::coordinatorTask() {
 
     while(1) {
         // tell stepper to move
-        // Serial.printf("Coordinator: telling motor %d to move\n", flag + 1);
         xTaskNotifyGive(stepperTaskHandle);
         // wait until moved
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        // Finger 1 arrives here and waits for Finger 2
-        // Serial.printf("Coordinator: Finger %d ready to play\n", flag + 1);
+        
         if (playSyncGroup != NULL) {
             xEventGroupSync(
                 playSyncGroup, 
