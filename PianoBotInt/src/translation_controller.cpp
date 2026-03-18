@@ -95,49 +95,35 @@ void IRAM_ATTR StepperController::global_rmt_tx_done_cb(rmt_channel_t channel, v
 }
 
 //stepper task to move to target positions
-void StepperController::run(){
-    while (coordinatorTaskHandle == NULL) {
-        vTaskDelay(pdMS_TO_TICKS(10)); 
-    }
-    // int current_key = 0; //assume starts at key 0 after homing
-    while(1){
+void StepperController::run() {
+    // Wait for system start
+    // while (coordinatorTaskHandle == NULL) vTaskDelay(pdMS_TO_TICKS(10));
 
-        // Wait coordinator command (with safety timeout)
-        //prevents inf blocking if coordinator fails
-        if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) == 0){
-            continue;
-        }
-        //check if restart needed 
-        if(next_key_ptr >= key_end){
+    double current_acc = 5.0;  // Your first acceleration
+    double back_acc = 0.5;  // Your "different" acceleration
+    double increment = 0.5; 
+    int target_distance = 10;    // Number of keys to move
 
-            rehome();
-            // Serial.printf("Motor %d: starting song\n", config.RMT_CH + 1);
-        }
-        // else{
-            //for testing
-            // Serial.printf("-------------- MOVING to Key: %d\n", *next_key_ptr);
-            // Serial.println("Key position: " + String(current_key));
+    while(1) {
+        // 1. Move to the Left (using Profile A)
+        move_keys(target_distance, direction::RIGHT, current_acc);
+        vTaskDelay(pdMS_TO_TICKS(5000));
 
-        int key_diff = *next_key_ptr - current_key;
+        // 3. Move to the same position (Right) with Profile B
+        // Note: rehome() usually leaves you at a 'start' key, 
+        // so we move relative to that.
+        move_keys(target_distance, direction::LEFT, back_acc);
+        vTaskDelay(pdMS_TO_TICKS(5000));
+
+        rehome(); 
+
+        current_acc += increment;
+
+        // Optional: Small delay before repeating
+        vTaskDelay(pdMS_TO_TICKS(500));
         
-        //move to next key 
-        if(key_diff != 0){
-            //move (keys, dirrection, step freq. Hz)
-            move_keys(abs(key_diff), (key_diff > 0) ? direction::LEFT : direction::RIGHT, 5000);
-            // Wait until RMT transmission finishes (from ISR) - callback will unblock
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        }   
-
-        //look at next key position
-        next_key_ptr++;
-        // }
-
-
-        //tell coordinator ready for next sequence  or rehome finished 
-        xTaskNotifyGive(coordinatorTaskHandle);
-
-    }  
-    
+        // 4. Repeat loop...
+    }
 }
 
 //moves stepper a number of keys in given direction
@@ -145,7 +131,7 @@ void StepperController::run(){
 //arguments: keys - number of keys to move
 //           dirr  - direction RIGHT/LEFT
 //           step_time - time between step in ms (default 4ms)
-void StepperController::move_keys(int keys, direction dirr, uint16_t hz ){
+void StepperController::move_keys(int keys, direction dirr, uint16_t hz, double acceleration){
     //ensure move is in bounds
     //todo: shitty check tbh
     if(keys < 0 || keys > config.MAX_KEYS){
@@ -163,7 +149,7 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz ){
     uint32_t steps = (keys * config.STEPS_PER_KEY > step_buffer_capacity) ? step_buffer_capacity : keys * config.STEPS_PER_KEY;
     // Serial.println("-------------- moving ---------------\n");
     for(int i = 0; i < steps; i++){
-        step_buffer[i] = trapezoid(steps, i);
+        step_buffer[i] = trapezoid(steps, i, dirr, acceleration);
     }
     // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately
@@ -188,45 +174,40 @@ void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
     }
 }
 
-rmt_item32_t StepperController::trapezoid(int steps, int stepCount){   
-    const double spm = 1600.0/(2.0*PI*0.0175);
-    const double acc = spm*5.0; // steps/sec^2
-    const double vel = spm*0.35; // step/s
-    const double acc_step = (vel*vel) / (2.0*acc);
+rmt_item32_t StepperController::trapezoid(int steps, int stepCount, direction dirr, double acceleration) {   
+    double vel_m = 0.1; // m/s
+    double acc_m = acceleration; 
+
+    const double spm = 1600.0 / (2.0 * PI * 0.0175);
+    double acc = spm * acc_m;  // steps/s^2
+    double vel = spm * vel_m;  // steps/s
+    double acc_step = (vel * vel) / (2.0 * acc);
     
-    const double cmin = 1000000.0/vel;
-    const double c0 = 0.676*1000000.0*sqrt(2.0/acc);
-    static double cn; //may cause err sttic 
+    double cmin = 1000000.0 / vel;
+    double c0 = 0.676 * 1000000.0 * sqrt(2.0 / acc);
+    
+    // Use a local calculation for cn to avoid static interference
+    double cn;
+    int n = stepCount + 1;
+
+    // Standard Alpha-step approximation for stepper acceleration
+    if (n <= acc_step) {
+        // Simple approximation: cn = c0 * (sqrt(n) - sqrt(n-1))
+        // Or keep your iterative logic but calculate from c0 to n
+        cn = c0 * (sqrt(n) - sqrt(n-1)); 
+    } else if (n <= (steps - acc_step)) {
+        cn = cmin;
+    } else {
+        int m = steps - n + 1;
+        cn = c0 * (sqrt(m) - sqrt(m-1));
+    }
+
+    if (cn < cmin) cn = cmin;
+    uint32_t half_period_us = (uint32_t)(cn / 2.0);
 
     rmt_item32_t item;
-    int n = stepCount+1;
-    if(n == 1){cn = c0;}
-
-    //acceleration
-    if(n<=acc_step){
-        cn = cn - (2.0*cn) / (4.0*n+1.0);
-    }
-
-    //constant velocity
-    else if (n<=(steps - acc_step) && steps>(2*acc_step)){
-        cn = cmin;
-    }
-
-    //deceleration
-    else{
-        int m = steps - n + 1;
-        cn = cn + (2.0*cn) / (4.0*m+1.0);
-    }
-
-    if(cn < cmin) cn = cmin;
-    uint32_t half_period_us = (uint32_t)(cn/2.0); // 50% duty cycle
-
-    item.level0 = 1; 
-    item.duration0 = half_period_us;    
-    item.level1 = 0; 
-    item.duration1 = half_period_us;   
-            
-
+    item.level0 = 1; item.duration0 = half_period_us;    
+    item.level1 = 0; item.duration1 = half_period_us;   
     return item;
 }
 
@@ -248,19 +229,20 @@ void StepperController::home(){
 
 
     //update positoin
-    if(config.RMT_CH == 0){current_key = 32;}
-    else{current_key = 37;}
+    current_key = 32;
+    // if(config.RMT_CH == 0){current_key = 32;}
+    // else{current_key = 37;}
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
-    //move to first key manually
-    for(int i = 0; i < abs(current_key - *next_key_ptr) * config.STEPS_PER_KEY; i++){
-        digitalWrite(config.STEP_PIN, HIGH);
-        ets_delay_us(100); 
-        digitalWrite(config.STEP_PIN, LOW);
-        ets_delay_us(100);
-    }
+    
+    // //move to first key manually
+    // for(int i = 0; i < abs(current_key - *next_key_ptr) * config.STEPS_PER_KEY; i++){
+    //     digitalWrite(config.STEP_PIN, HIGH);
+    //     ets_delay_us(100); 
+    //     digitalWrite(config.STEP_PIN, LOW);
+    //     ets_delay_us(100);
+    // }
     // Serial.printf("--------------  motor %d at start key %d ---------------\n", config.RMT_CH+1, *next_key_ptr);
-
 
     current_key = *next_key_ptr;
 }
@@ -326,15 +308,15 @@ void StepperController::rehome( ){
     const EventBits_t allReadyBits = finger1Bit | finger2Bit;
     EventBits_t thisBit = (config.RMT_CH == 0) ? finger1Bit : finger2Bit;
     next_key_ptr = key_start; //reset song position to start after rehome
-    if (syncStartEventGroup != NULL) {
-        //motor waitinghere 
-        xEventGroupSync(
-            syncStartEventGroup,
-            thisBit,         
-            allReadyBits,    
-            portMAX_DELAY    
-        );
-    }
+    // if (syncStartEventGroup != NULL) {
+    //     //motor waitinghere 
+    //     xEventGroupSync(
+    //         syncStartEventGroup,
+    //         thisBit,         
+    //         allReadyBits,    
+    //         portMAX_DELAY    
+    //     );
+    // }
 
     //clear any notifications from homing process to prevent false triggers in main loop
     ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);

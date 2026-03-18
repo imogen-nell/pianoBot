@@ -59,9 +59,9 @@ private:
 
     // helper
     void home();
-    void move_keys(int keys, direction dirr, uint16_t hz = 10000);
+    void move_keys(int keys, direction dirr, uint16_t hz = 10000, double acceleration=0.1);
     void populate_step_buffer(uint16_t steps, uint16_t hz);
-    static inline rmt_item32_t trapezoid(int steps, int stepCount);
+    static inline rmt_item32_t trapezoid(int steps, int stepCount, direction dirr, double acceleration);
     void rehome();
 
     // FreeRTOS entry wrapper
