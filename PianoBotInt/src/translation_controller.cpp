@@ -99,30 +99,37 @@ void StepperController::run() {
     // Wait for system start
     // while (coordinatorTaskHandle == NULL) vTaskDelay(pdMS_TO_TICKS(10));
 
-    double current_acc = 5.0;  // Your first acceleration
-    double back_acc = 0.5;  // Your "different" acceleration
+    double current_acc = 18.0;  // Your first acceleration
+    double back_acc = 0.1;  // Your "different" acceleration
     double increment = 0.5; 
-    int target_distance = 10;    // Number of keys to move
+    int target_distance = 15;    // Number of keys to move
 
     while(1) {
-        // 1. Move to the Left (using Profile A)
         move_keys(target_distance, direction::RIGHT, current_acc);
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
-        // 3. Move to the same position (Right) with Profile B
-        // Note: rehome() usually leaves you at a 'start' key, 
-        // so we move relative to that.
         move_keys(target_distance, direction::LEFT, back_acc);
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
-        rehome(); 
+        if (digitalRead(config.HOME_SWITCH_PIN) == LOW) {
+            Serial.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            Serial.printf("STALL DETECTED at Accel: %.2f\n", current_acc);
+            Serial.println("Motor failed to return to home switch.");
+            Serial.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            
+            // Stop the test
+            break; 
+        } else {
+            Serial.printf("Move successful at accel: %.2f\n", current_acc);
+        }
+
+        // rehome(); 
 
         current_acc += increment;
 
         // Optional: Small delay before repeating
         vTaskDelay(pdMS_TO_TICKS(500));
         
-        // 4. Repeat loop...
     }
 }
 
@@ -158,6 +165,7 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz, double 
 
     //update current key position
     current_key += keys * ((dirr == direction::RIGHT) ? -1 : 1);
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 }
 
 
@@ -229,7 +237,7 @@ void StepperController::home(){
 
 
     //update positoin
-    current_key = 32;
+    current_key = 37;
     // if(config.RMT_CH == 0){current_key = 32;}
     // else{current_key = 37;}
 

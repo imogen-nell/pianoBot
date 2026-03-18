@@ -12,9 +12,14 @@ VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8
     // Serial.printf("---setting notes to %d at %d\n", *start_addr, start_addr);
 
     //initialize pins to motor driver
-    pinMode(DIR_PIN, OUTPUT);
-    ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
-    ledcAttachPin(PWM_PIN, PWM_CHANNEL);
+    // pinMode(DIR_PIN, OUTPUT);
+    // ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
+    // ledcAttachPin(PWM_PIN, PWM_CHANNEL);
+    pinMode(pwm_pin, OUTPUT);
+    digitalWrite(pwm_pin, LOW); // Force physical off
+    pinMode(dir_pin, OUTPUT);
+    digitalWrite(dir_pin, LOW);
+    return;
 
     // xTimerStop(finger_up_timer, 0);     
     // xTimerStart(finger_up_timer, 0);
