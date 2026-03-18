@@ -62,30 +62,30 @@ static void move_steps(int steps, direction dirr){
     }
 }
 
-// static void stop_stepper(){
-//     //TODO implement stop function
-//     //send 0 PWM to stepper driver
-//     digitalWrite(STEP_PIN, LOW);
-//     vTaskDelay(pdMS_TO_TICKS(2500)); 
-// } 
+static void stop_stepper(){
+    //TODO implement stop function
+    //send 0 PWM to stepper driver
+    digitalWrite(STEP_PIN, LOW);
+    vTaskDelay(pdMS_TO_TICKS(2500)); 
+} 
 
-// // limit checking - stay in bounds 
-// static void t_limitCheckTask(void* params){
-//     //check left limit
-//     if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
-//         delay(10); // small delay to filter bounce
-//         if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
-//             Serial.println("--------------hit limit--------------"); // <-- print when homed
-//             stop_stepper();
-//             move_steps(50, direction::RIGHT); //move off button
+// limit checking - stay in bounds 
+static void t_limitCheckTask(void* params){
+    //check left limit
+    if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
+        delay(10); // small delay to filter bounce
+        if (digitalRead(HOME_SWITCH_PIN) == HIGH) {
+            Serial.println("--------------hit limit--------------"); // <-- print when homed
+            stop_stepper();
+            move_steps(50, direction::RIGHT); //move off button
             
-//             // re initialise current key 
-//             currentKey = 0;
-//         }
-//     }
-//     vTaskDelay(pdMS_TO_TICKS(10)); //yield CPU properly
+            // re initialise current key 
+            currentKey = 0;
+        }
+    }
+    vTaskDelay(pdMS_TO_TICKS(10)); //yield CPU properly
     
-// }
+}
 
 // //stepper task to move to target positions
 static void t_controllerTask(void* params){
@@ -135,7 +135,7 @@ void init_t_ctrl(){
 
     // //begin homing
     // Serial.println("----------------- homing -----------------"); 
-    // home_stepper();
+    home_stepper();
     // Serial.println("-------------- homing done ---------------");
 
 
