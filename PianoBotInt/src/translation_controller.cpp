@@ -4,9 +4,11 @@
 #include "freertos/semphr.h"
 #include "t_controller.h"
 #include "driver/rmt.h"
+#include "keys.h"
+
 StepperController* StepperController::instances[2] = {nullptr};
 //init stepper motor controller
-StepperController::StepperController(const StepperConfig& cfg, const int* key_positions_start, int key_arr_len,EventGroupHandle_t syncGroup)
+StepperController::StepperController(const StepperConfig& cfg, const key_entry* key_positions_start, int key_arr_len,EventGroupHandle_t syncGroup)
     : config(cfg), next_key_ptr(key_positions_start), key_start(key_positions_start),key_end(key_positions_start+key_arr_len),syncStartEventGroup(syncGroup)
 {    
     // Serial.printf("starting key pos: %d at %d\n", *next_key_ptr, next_key_ptr);
@@ -118,7 +120,7 @@ void StepperController::run(){
             // Serial.printf("-------------- MOVING to Key: %d\n", *next_key_ptr);
             // Serial.println("Key position: " + String(current_key));
 
-        int key_diff = *next_key_ptr - current_key;
+        int key_diff = next_key_ptr->key_pos - current_key;
         
         //move to next key 
         if(key_diff != 0){
@@ -244,31 +246,31 @@ void StepperController::home(){
         // vTaskDelay(pdMS_TO_TICKS(1)); 
         ets_delay_us(100);
     }
-    Serial.printf("--------------  motor %d homed ---------------\n", config.RMT_CH+1, *next_key_ptr);
+    Serial.printf("--------------  motor %d homed ---------------\n", config.RMT_CH+1, next_key_ptr->key_pos);
 
 
     //update positoin
     if(config.RMT_CH == 0){current_key = 32;}
-    else{current_key = 37;}
+    else{current_key = 57;}
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
-    for(int i = 0; i < abs(current_key - *next_key_ptr) * config.STEPS_PER_KEY; i++){
+    for(int i = 0; i < abs(current_key - next_key_ptr->key_pos) * config.STEPS_PER_KEY; i++){
         digitalWrite(config.STEP_PIN, HIGH);
         ets_delay_us(100); 
         digitalWrite(config.STEP_PIN, LOW);
         ets_delay_us(100);
     }
-    // Serial.printf("--------------  motor %d at start key %d ---------------\n", config.RMT_CH+1, *next_key_ptr);
+    Serial.printf("--------------  motor %d at start key %d ---------------\n", config.RMT_CH+1, next_key_ptr->key_pos);
 
 
-    current_key = *next_key_ptr;
+    current_key = next_key_ptr->key_pos;
 }
 
 //re home steepper ( after RMT is set up )
 //should not notify main ctrlr until rehoming complete 
 void StepperController::rehome( ){
-    // Serial.printf("---- REHOME Motor %d ----\n", config.RMT_CH+1);
+    Serial.printf("---- REHOME Motor %d ----\n", config.RMT_CH+1);
     homing = 1;
 
     digitalWrite(config.DIR_PIN, direction::LEFT);
@@ -289,13 +291,13 @@ void StepperController::rehome( ){
     // Serial.printf("Motor %d: home hit \n", config.RMT_CH + 1);
   
     //update position to home key (leftmost)
-    current_key = (config.RMT_CH == 0) ? 32 : 37;
+    current_key = (config.RMT_CH == 0) ? 32 : 57;
     digitalWrite(config.DIR_PIN, direction::LEFT);
     ets_delay_us(5); 
     // //move to start key here 
     
-    int key_diff = *key_start - current_key;
-    // Serial.printf("-------------- moving motor %d to start key %d, %d keys over ---------------\n", config.RMT_CH+1, *next_key_ptr, abs(key_diff));
+    int key_diff = key_start->key_pos - current_key;
+    // Serial.printf("-------------- moving motor %d to start key %d, %d keys over ---------------\n", config.RMT_CH+1, next_key_ptr->key_pos, abs(key_diff));
     if(key_diff != 0) {
         digitalWrite(config.DIR_PIN, (key_diff > 0) ? direction::LEFT : direction::RIGHT);
         ets_delay_us(10);
@@ -316,7 +318,7 @@ void StepperController::rehome( ){
             steps_sent += to_send;
         }
     }
-    current_key = *key_start; //update position to start key after move
+    current_key = key_start->key_pos; //update position to start key after move
     // Serial.printf("--------------  motor %d at start key %d ---------------\n", config.RMT_CH+1, *next_key_ptr);
 
     next_key_ptr = key_start; //reset song position to start after rehome

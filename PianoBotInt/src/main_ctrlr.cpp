@@ -4,6 +4,7 @@
 #include <HardwareSerial.h>
 #include "freertos/event_groups.h"
 
+
 Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int coreID, EventGroupHandle_t playSyncGroup, EventBits_t mySyncBit, EventBits_t allFingersMask)
     : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask), playSyncGroup(playSyncGroup), mySyncBit(mySyncBit), allFingersMask(allFingersMask)
 {

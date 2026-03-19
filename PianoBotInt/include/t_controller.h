@@ -3,6 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/rmt.h"
+#include "keys.h"
 
 // Stepper pins & RMT channel can be customized per instance
 struct StepperConfig {
@@ -12,7 +13,7 @@ struct StepperConfig {
     rmt_channel_t RMT_CH;
     //all finges same stepsper key and max keys for now
     static constexpr int MAX_KEYS = 25; 
-    static constexpr int STEPS_PER_KEY = 35 * 4*3;
+    static constexpr int STEPS_PER_KEY = 35 * 4*3-40;
 
 };
 
@@ -23,7 +24,7 @@ class StepperController {
 public:
     enum direction {RIGHT, LEFT};
     
-    StepperController(const StepperConfig& cfg, const int* key_positions_start, int key_arr_len, EventGroupHandle_t syncGroup);
+    StepperController(const StepperConfig& cfg, const key_entry* key_positions_start, int key_arr_len, EventGroupHandle_t syncGroup);
 
     TaskHandle_t getTaskHandle() const { return taskHandle; }
     void setCoordinatorHandle(TaskHandle_t handle){this->coordinatorTaskHandle = handle;};
@@ -46,9 +47,9 @@ private:
 
 
     // key array pointers
-    const int* next_key_ptr; //moves through the array 
-    const int* key_start; //const song array for now
-    const int* key_end; //end of keys array
+    const key_entry* next_key_ptr; //moves through the array 
+    const key_entry* const key_start; //const song array for now
+    const key_entry* const key_end; //end of keys array
 
     // task handle
     TaskHandle_t taskHandle = nullptr;
