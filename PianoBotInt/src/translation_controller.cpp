@@ -190,45 +190,45 @@ void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
     }
 }
 
-rmt_item32_t StepperController::trapezoid(int steps, int stepCount){   
-    const double spm = 1600.0/(2.0*PI*0.0175);
-    const double acc = spm*5.0; // steps/sec^2
-    const double vel = spm*0.35; // step/s
-    const double acc_step = (vel*vel) / (2.0*acc);
+rmt_item32_t StepperController::trapezoid(int steps, int stepCount) {   
+    double vel_m = 0.95; // (m/s)
+    double acc_m = 12.0; // (m/s^2) 
+
+    const double spm = 1600.0 / (2.0 * PI * 0.0175);
+    double acc = spm * acc_m;  
+    double vel = spm * vel_m;  
+
+    double steps_to_max = (vel * vel) / (2.0 * acc);
     
-    const double cmin = 1000000.0/vel;
-    const double c0 = 0.676*1000000.0*sqrt(2.0/acc);
-    static double cn; //may cause err sttic 
+    double actual_acc_steps = (steps_to_max < (steps / 2.0)) ? steps_to_max : (steps / 2.0);
+    
+    double c0 = 0.676 * 1000000.0 * sqrt(2.0 / acc);
+    double actual_vel = sqrt(2.0 * acc * actual_acc_steps);
+    double cmin = 1000000.0 / actual_vel;
+
+    double cn;
+    int n = stepCount + 1;
+
+    if (n <= actual_acc_steps) {
+        // Acceleration phase
+        cn = c0 * (sqrt(n) - sqrt(n-1)); 
+    } else if (n <= (steps - actual_acc_steps)) {
+        // Cruise phase (only exists if move is long enough)
+        cn = cmin;
+    } else {
+        // Deceleration phase
+        int m = steps - n + 1;
+        cn = c0 * (sqrt(m) - sqrt(m-1));
+    }
+
+    // Safety floor
+    if (cn < cmin) cn = cmin;
+
+    uint32_t half_period_us = (uint32_t)(cn / 2.0);
 
     rmt_item32_t item;
-    int n = stepCount+1;
-    if(n == 1){cn = c0;}
-
-    //acceleration
-    if(n<=acc_step){
-        cn = cn - (2.0*cn) / (4.0*n+1.0);
-    }
-
-    //constant velocity
-    else if (n<=(steps - acc_step) && steps>(2*acc_step)){
-        cn = cmin;
-    }
-
-    //deceleration
-    else{
-        int m = steps - n + 1;
-        cn = cn + (2.0*cn) / (4.0*m+1.0);
-    }
-
-    if(cn < cmin) cn = cmin;
-    uint32_t half_period_us = (uint32_t)(cn/2.0); // 50% duty cycle
-
-    item.level0 = 1; 
-    item.duration0 = half_period_us;    
-    item.level1 = 0; 
-    item.duration1 = half_period_us;   
-            
-
+    item.level0 = 1; item.duration0 = half_period_us;    
+    item.level1 = 0; item.duration1 = half_period_us;   
     return item;
 }
 
