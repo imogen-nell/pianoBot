@@ -99,33 +99,35 @@ void StepperController::run() {
     // Wait for system start
     // while (coordinatorTaskHandle == NULL) vTaskDelay(pdMS_TO_TICKS(10));
 
-    double current_acc = 18.0;  // Your first acceleration
+    double current_acc = 10.0;  // Your first acceleration
     double back_acc = 0.1;  // Your "different" acceleration
-    double increment = 0.5; 
-    int target_distance = 15;    // Number of keys to move
+    double increment = 0.02; 
+    double current_v = 1.20;
+    double back_v = 0.1;
+    int target_distance = 35;    // Number of keys to move 30, 35
 
     while(1) {
-        move_keys(target_distance, direction::RIGHT, current_acc);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        move_keys(target_distance, direction::RIGHT, 10000, current_acc, current_v);
+        // vTaskDelay(pdMS_TO_TICKS(500));
 
-        move_keys(target_distance, direction::LEFT, back_acc);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        move_keys(target_distance, direction::LEFT, 10000, back_acc, back_v);
+        // vTaskDelay(pdMS_TO_TICKS(500));
 
         if (digitalRead(config.HOME_SWITCH_PIN) == LOW) {
             Serial.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            Serial.printf("STALL DETECTED at Accel: %.2f\n", current_acc);
+            Serial.printf("STALL DETECTED at Accel: %.2f\n", current_v);
             Serial.println("Motor failed to return to home switch.");
             Serial.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
             
             // Stop the test
-            break; 
+            break;
         } else {
-            Serial.printf("Move successful at accel: %.2f\n", current_acc);
+            Serial.printf("Move successful at accel: %.2f\n", current_v);
         }
 
         // rehome(); 
 
-        current_acc += increment;
+        current_v += increment;
 
         // Optional: Small delay before repeating
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -138,16 +140,16 @@ void StepperController::run() {
 //arguments: keys - number of keys to move
 //           dirr  - direction RIGHT/LEFT
 //           step_time - time between step in ms (default 4ms)
-void StepperController::move_keys(int keys, direction dirr, uint16_t hz, double acceleration){
+void StepperController::move_keys(int keys, direction dirr, uint16_t hz, double acceleration, double velocity){
     //ensure move is in bounds
     //todo: shitty check tbh
-    if(keys < 0 || keys > config.MAX_KEYS){
-        int target_key = current_key + keys * ((dirr == direction::RIGHT) ? -1 : 1);
+    // if(keys < 0 || keys > config.MAX_KEYS){
+    //     int target_key = current_key + keys * ((dirr == direction::RIGHT) ? -1 : 1);
 
-        Serial.println("-------------- out of bounds move ---------------");
-        Serial.printf("current key: %d, target key: %d, motor: %d\n", current_key, target_key, config.RMT_CH+1);
-        return;
-    }
+    //     Serial.println("-------------- out of bounds move ---------------");
+    //     Serial.printf("current key: %d, target key: %d, motor: %d\n", current_key, target_key, config.RMT_CH+1);
+    //     return;
+    // }
 
 
     digitalWrite(config.DIR_PIN, dirr);
@@ -156,7 +158,7 @@ void StepperController::move_keys(int keys, direction dirr, uint16_t hz, double 
     uint32_t steps = (keys * config.STEPS_PER_KEY > step_buffer_capacity) ? step_buffer_capacity : keys * config.STEPS_PER_KEY;
     // Serial.println("-------------- moving ---------------\n");
     for(int i = 0; i < steps; i++){
-        step_buffer[i] = trapezoid(steps, i, dirr, acceleration);
+        step_buffer[i] = trapezoid(steps, i, dirr, acceleration, velocity);
     }
     // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately
@@ -182,35 +184,40 @@ void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
     }
 }
 
-rmt_item32_t StepperController::trapezoid(int steps, int stepCount, direction dirr, double acceleration) {   
-    double vel_m = 0.1; // m/s
+rmt_item32_t StepperController::trapezoid(int steps, int stepCount, direction dirr, double acceleration, double velocity) {   
+    double vel_m = velocity; // (m/s)
     double acc_m = acceleration; 
 
     const double spm = 1600.0 / (2.0 * PI * 0.0175);
-    double acc = spm * acc_m;  // steps/s^2
-    double vel = spm * vel_m;  // steps/s
-    double acc_step = (vel * vel) / (2.0 * acc);
+    double acc = spm * acc_m;  
+    double vel = spm * vel_m;  
+
+    double steps_to_max = (vel * vel) / (2.0 * acc);
     
-    double cmin = 1000000.0 / vel;
+    double actual_acc_steps = (steps_to_max < (steps / 2.0)) ? steps_to_max : (steps / 2.0);
+    
     double c0 = 0.676 * 1000000.0 * sqrt(2.0 / acc);
-    
-    // Use a local calculation for cn to avoid static interference
+    double actual_vel = sqrt(2.0 * acc * actual_acc_steps);
+    double cmin = 1000000.0 / actual_vel;
+
     double cn;
     int n = stepCount + 1;
 
-    // Standard Alpha-step approximation for stepper acceleration
-    if (n <= acc_step) {
-        // Simple approximation: cn = c0 * (sqrt(n) - sqrt(n-1))
-        // Or keep your iterative logic but calculate from c0 to n
+    if (n <= actual_acc_steps) {
+        // Acceleration phase
         cn = c0 * (sqrt(n) - sqrt(n-1)); 
-    } else if (n <= (steps - acc_step)) {
+    } else if (n <= (steps - actual_acc_steps)) {
+        // Cruise phase (only exists if move is long enough)
         cn = cmin;
     } else {
+        // Deceleration phase
         int m = steps - n + 1;
         cn = c0 * (sqrt(m) - sqrt(m-1));
     }
 
+    // Safety floor
     if (cn < cmin) cn = cmin;
+
     uint32_t half_period_us = (uint32_t)(cn / 2.0);
 
     rmt_item32_t item;
@@ -237,7 +244,7 @@ void StepperController::home(){
 
 
     //update positoin
-    current_key = 37;
+    current_key = 32;
     // if(config.RMT_CH == 0){current_key = 32;}
     // else{current_key = 37;}
 
