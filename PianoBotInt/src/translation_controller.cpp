@@ -191,8 +191,8 @@ void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
 }
 
 rmt_item32_t StepperController::trapezoid(int steps, int stepCount) {   
-    double vel_m = 0.95; // (m/s)
-    double acc_m = 12.0; // (m/s^2) 
+    double vel_m = 0.472; // (m/s)
+    double acc_m = 100.0; // (m/s^2) 
 
     const double spm = 1600.0 / (2.0 * PI * 0.0175);
     double acc = spm * acc_m;  
