@@ -83,10 +83,9 @@ void IRAM_ATTR StepperController::global_rmt_tx_done_cb(rmt_channel_t channel, v
     // Look up the correct object using the channel number provided by hardware
     StepperController* stepper = instances[channel];
 
-    if (stepper == nullptr || stepper->taskHandle == nullptr || stepper->homing==1) return;
+    if (stepper == nullptr || stepper->taskHandle == nullptr || stepper->isr_flag==1) return;
 
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
     xTaskNotifyFromISR(
         stepper->taskHandle, // task to notify
         0, // no value
@@ -110,31 +109,36 @@ void StepperController::run(){
             continue;
         }
         //check if restart needed 
+        //print key end locaiton
+        // Serial.printf("Motor %d: MOVING TO pos: %d\n", config.RMT_CH + 1, next_key_ptr- key_end);
         if(next_key_ptr >= key_end){
-
+            // Serial.printf("Motor %d: re-starting song\n", config.RMT_CH + 1);
             rehome();
-            // Serial.printf("Motor %d: starting song\n", config.RMT_CH + 1);
         }
+        
         // else{
             //for testing
-            // Serial.printf("-------------- MOVING to Key: %d\n", *next_key_ptr);
+            // Serial.printf("-------------- MOVING to Key: %d\n", next_key_ptr->key_pos);
             // Serial.println("Key position: " + String(current_key));
 
         int key_diff = next_key_ptr->key_pos - current_key;
-        
+
         //move to next key 
         if(key_diff != 0){
-            //move (keys, dirrection, step freq. Hz)
-            move_keys(abs(key_diff), (key_diff > 0) ? direction::LEFT : direction::RIGHT, 5000);
+            // Serial.printf("Motor %d: moving %d keys\n", config.RMT_CH + 1, abs(key_diff));
+
+            move_keys(abs(key_diff), (key_diff > 0) ? direction::LEFT : direction::RIGHT,  next_key_ptr->time_ms);
             // Wait until RMT transmission finishes (from ISR) - callback will unblock
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            //print time of completed move for debugging
+            // Serial.printf("Motor %d: completed move to pos: %d at time %lu\n", config.RMT_CH + 1, next_key_ptr->key_pos, millis());
         }   
 
         //look at next key position
         next_key_ptr++;
+        // Serial.printf("Motor %d: LOOKING AT pos: %d\n", config.RMT_CH + 1, next_key_ptr- key_end);
+
         // }
-
-
         //tell coordinator ready for next sequence  or rehome finished 
         xTaskNotifyGive(coordinatorTaskHandle);
 
@@ -146,28 +150,98 @@ void StepperController::run(){
 //          then updates current_key position
 //arguments: keys - number of keys to move
 //           dirr  - direction RIGHT/LEFT
-//           step_time - time between step in ms (default 4ms)
-void StepperController::move_keys(int keys, direction dirr, uint16_t hz ){
+//           step_time - time b1etween step in ms (default 4ms)
+void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     //ensure move is in bounds
+    if (keys <= 0 || time_ms <= 0)  return;
     //todo: shitty check tbh
-    if(keys < 0 || keys > config.MAX_KEYS){
-        int target_key = current_key + keys * ((dirr == direction::RIGHT) ? -1 : 1);
+    // if(keys < 0 || keys > config.MAX_KEYS){
+    //     int target_key = current_key + keys * ((dirr == direction::RIGHT) ? -1 : 1);
 
-        Serial.println("-------------- out of bounds move ---------------");
-        Serial.printf("current key: %d, target key: %d, motor: %d\n", current_key, target_key, config.RMT_CH+1);
-        return;
-    }
+    //     Serial.println("-------------- out of bounds move ---------------");
+    // Serial.printf("current key: %d, target key: %d, motor: %d at time %lu\n", current_key, next_key_ptr->key_pos, config.RMT_CH+1, millis());
+    //     return;
+    // }
+    //print current time right now 
+   
+
 
 
     digitalWrite(config.DIR_PIN, dirr);
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
     uint32_t steps = (keys * config.STEPS_PER_KEY > step_buffer_capacity) ? step_buffer_capacity : keys * config.STEPS_PER_KEY;
-    // Serial.println("-------------- moving ---------------\n");
-    for(int i = 0; i < steps; i++){
-        step_buffer[i] = trapezoid(steps, i);
+    // Serial.printf("-------------- moving %d steps--\n", steps);
+    // for(int i = 0; i < steps; i++){
+    //     step_buffer[i] = trapezoid(steps, i);
+    // }
+
+    float total_time_us = time_ms * 1000.0f;
+
+    // partition time into acce/decel/cruise phases
+    int accel_steps = steps / 3;
+    int decel_steps = steps / 3;
+    int cruise_steps = steps - accel_steps - decel_steps;
+
+    // base timing (average)
+    float avg_step_time = total_time_us / steps;
+
+    // define min/max step times (tune)
+    float max_step_time = avg_step_time * 2.0f;  // slow start
+    float min_step_time = avg_step_time * 0.5f;  // fast cruise
+
+    int idx = 0;
+
+    // --- ACCEL ---
+    for (int i = 0; i < accel_steps; i++, idx++) {
+        float t = (float)i / accel_steps;
+        float step_time = max_step_time - t * (max_step_time - min_step_time);
+
+        uint32_t half = (uint32_t)(step_time / 2);
+
+        step_buffer[idx].level0 = 1;
+        step_buffer[idx].duration0 = half;
+        step_buffer[idx].level1 = 0;
+        step_buffer[idx].duration1 = half;
     }
-    // send step waveform from rmt_item array, NON BLOCKING
+    // rmt_write_items(config.RMT_CH, step_buffer, accel_steps, true);
+
+    // --- CRUISE ---
+    for (int i = 0; i < cruise_steps; i++, idx++) {
+        uint32_t half = (uint32_t)(min_step_time / 2);
+
+        step_buffer[idx].level0 = 1;
+        step_buffer[idx].duration0 = half;
+        step_buffer[idx].level1 = 0;
+        step_buffer[idx].duration1 = half;
+        // step_buffer[i].level0 = 1;
+        // step_buffer[i].duration0 = half;
+        // step_buffer[i].level1 = 0;
+        // step_buffer[i].duration1 = half;
+    }
+    // rmt_write_items(config.RMT_CH, step_buffer, cruise_steps, true);
+    // --- DECEL ---
+    for (int i = 0; i < decel_steps; i++, idx++) {
+        float t = (float)i / decel_steps;
+        float step_time = min_step_time + t * (max_step_time - min_step_time);
+
+        uint32_t half = (uint32_t)(step_time / 2);
+
+        step_buffer[idx].level0 = 1;
+        step_buffer[idx].duration0 = half;
+        step_buffer[idx].level1 = 0;
+        step_buffer[idx].duration1 = half;
+        // step_buffer[i].level0 = 1;
+        // step_buffer[i].duration0 = half;
+        // step_buffer[i].level1 = 0;
+        // step_buffer[i].duration1 = half;
+    }
+
+
+
+    // rmt_write_items(config.RMT_CH, step_buffer, decel_steps, false);
+
+    // // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately
     //interrupt (callback within ISR) raised when RMT item complete
     rmt_write_items(config.RMT_CH, step_buffer, steps, false);
@@ -236,6 +310,7 @@ rmt_item32_t StepperController::trapezoid(int steps, int stepCount){
 void StepperController::home(){
     pinMode(config.STEP_PIN, OUTPUT);
     digitalWrite(config.DIR_PIN, direction::LEFT);
+    ets_delay_us(5);
     //move left until hm switch is hit
     //make faster : reduce delay, but may cause missed steps and less accuracy
     while (digitalRead(config.HOME_SWITCH_PIN) == LOW) {
@@ -250,8 +325,7 @@ void StepperController::home(){
 
 
     //update positoin
-    if(config.RMT_CH == 0){current_key = 32;}
-    else{current_key = 57;}
+    current_key = (config.RMT_CH == 0) ? 32 : 57;
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
@@ -271,7 +345,7 @@ void StepperController::home(){
 //should not notify main ctrlr until rehoming complete 
 void StepperController::rehome( ){
     Serial.printf("---- REHOME Motor %d ----\n", config.RMT_CH+1);
-    homing = 1;
+    // isr_flag = 1;
 
     digitalWrite(config.DIR_PIN, direction::LEFT);
     ets_delay_us(5); 
@@ -283,24 +357,25 @@ void StepperController::rehome( ){
 
     while(digitalRead(config.HOME_SWITCH_PIN) == LOW) {
         //  true to wait for all items to be sent before returning
-        rmt_write_items(config.RMT_CH, step_buffer, steps, homing == 1);
+        // rmt_write_items(config.RMT_CH, step_buffer, steps, isr_flag == 1);
+        rmt_write_items(config.RMT_CH, step_buffer, steps, false);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     }
     //stop RMT in case still running
     rmt_tx_stop(config.RMT_CH);
-    // Serial.printf("Motor %d: home hit \n", config.RMT_CH + 1);
+    Serial.printf("Motor %d: home hit \n", config.RMT_CH + 1);
   
     //update position to home key (leftmost)
     current_key = (config.RMT_CH == 0) ? 32 : 57;
-    digitalWrite(config.DIR_PIN, direction::LEFT);
-    ets_delay_us(5); 
+
     // //move to start key here 
     
     int key_diff = key_start->key_pos - current_key;
-    // Serial.printf("-------------- moving motor %d to start key %d, %d keys over ---------------\n", config.RMT_CH+1, next_key_ptr->key_pos, abs(key_diff));
+    Serial.printf("-------------- moving motor %d to start key %d, %d keys over ---------------\n", config.RMT_CH+1,key_start->key_pos, abs(key_diff));
     if(key_diff != 0) {
         digitalWrite(config.DIR_PIN, (key_diff > 0) ? direction::LEFT : direction::RIGHT);
-        ets_delay_us(10);
+        ets_delay_us(2);
 
         uint32_t total_steps_needed = abs(key_diff) * config.STEPS_PER_KEY;
         
@@ -314,14 +389,14 @@ void StepperController::rehome( ){
         while(steps_sent < total_steps_needed) {
             uint32_t to_send = (total_steps_needed - steps_sent > chunk_size) ? chunk_size : (total_steps_needed - steps_sent);
             // true = wait for completion so we don't overwhelm the RMT
-            rmt_write_items(config.RMT_CH, step_buffer, to_send, true);
+            rmt_write_items(config.RMT_CH, step_buffer, to_send, false);
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             steps_sent += to_send;
         }
+        current_key -= steps_sent/config.STEPS_PER_KEY; //update position to start key after move
     }
-    current_key = key_start->key_pos; //update position to start key after move
-    // Serial.printf("--------------  motor %d at start key %d ---------------\n", config.RMT_CH+1, *next_key_ptr);
+    
 
-    next_key_ptr = key_start; //reset song position to start after rehome
     // SYNC BARRIER ---
     const EventBits_t finger1Bit = (1 << 0);
     const EventBits_t finger2Bit = (1 << 1);
@@ -340,6 +415,6 @@ void StepperController::rehome( ){
 
     //clear any notifications from homing process to prevent false triggers in main loop
     ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);
-    homing = 0; //re eneable normal operation
+    // isr_flag = 0; //re eneable normal operation
 
 }

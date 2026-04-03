@@ -3,10 +3,11 @@
 // Constructor
 VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
                                          float kp, float ki, float kd,
-                                        const int* start, int notes_arr_len)
+                                        const int* start, int notes_arr_len,
+                                        EventGroupHandle_t syncGroup)
     : PWM_PIN(pwm_pin), DIR_PIN(dir_pin), PWM_CHANNEL(pwm_channel),
       Kp(kp), Ki(ki), Kd(kd), 
-      next_note_ptr(start), end_addr(start+notes_arr_len),start_addr(start)
+      next_note_ptr(start), end_addr(start+notes_arr_len),start_addr(start),syncPlayEventGroup(syncGroup)
 {               
     
     // Serial.printf("---setting notes to %d at %d\n", *start_addr, start_addr);
@@ -15,10 +16,6 @@ VoiceCoilController::VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8
     pinMode(DIR_PIN, OUTPUT);
     ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RES);
     ledcAttachPin(PWM_PIN, PWM_CHANNEL);
-
-    // xTimerStop(finger_up_timer, 0);     
-    // xTimerStart(finger_up_timer, 0);
-    // xTaskNotifyWait(0, FINGER_UP_DONE, NULL, portMAX_DELAY);
 
     init_timers();
 
@@ -48,19 +45,19 @@ void VoiceCoilController::setCoordinatorHandle(TaskHandle_t handle) {
 void VoiceCoilController::init_timers() {
     voice_coil_timer = xTimerCreate(
         "note_timer",
-        pdMS_TO_TICKS(10),
+        pdMS_TO_TICKS(10), //should be 10 
         pdFALSE,        // one-shot
         this,
         note_timer_cb //notifies done
     );
 
-    finger_up_timer = xTimerCreate(
-        "finger_up_timer",
-        pdMS_TO_TICKS(100),
-        pdFALSE,        // one-shot
-        this,
-        finger_up_cb //notifies done
-    );
+    // finger_up_timer = xTimerCreate(
+    //     "finger_up_timer",
+    //     pdMS_TO_TICKS(10),
+    //     pdFALSE,        // one-shot
+    //     this,
+    //     finger_up_cb //notifies done
+    // );
 }
 
 
@@ -68,11 +65,9 @@ void VoiceCoilController::init_timers() {
 //args: ctrl_pwm , between -255 to 255
 void VoiceCoilController::send_pwm(int ctrl_pwm){
     
-    digitalWrite(DIR_PIN, ctrl_pwm <= 0); 
+    digitalWrite(DIR_PIN, ctrl_pwm >= 0); 
     ledcWrite(PWM_CHANNEL,  abs(ctrl_pwm));
 
-    //for data logger
-    // Serial.printf("PID,%lu,%d\n", millis(), ctrl_pwm); 
 }
 
 //timer callback(mandatory)
@@ -86,16 +81,16 @@ void VoiceCoilController::note_timer_cb(TimerHandle_t xTimer)
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-void IRAM_ATTR VoiceCoilController::finger_up_cb(TimerHandle_t xTimer) {
-    // get the VoiceCoilController instance
-    auto self = static_cast<VoiceCoilController*>(pvTimerGetTimerID(xTimer));
+// void IRAM_ATTR VoiceCoilController::finger_up_cb(TimerHandle_t xTimer) {
+//     // get the VoiceCoilController instance
+//     auto self = static_cast<VoiceCoilController*>(pvTimerGetTimerID(xTimer));
 
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    //sets flag
-    xTaskNotifyFromISR(self->vcTaskHandle, FINGER_UP_DONE, eSetBits, &xHigherPriorityTaskWoken);
-    xTaskNotifyFromISR(self->coordinatorTaskHandle, 0, eNoAction, &xHigherPriorityTaskWoken);
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-}
+//     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//     //sets flag
+//     xTaskNotifyFromISR(self->vcTaskHandle, FINGER_UP_DONE, eSetBits, &xHigherPriorityTaskWoken);
+//     xTaskNotifyFromISR(self->coordinatorTaskHandle, 0, eNoAction, &xHigherPriorityTaskWoken);
+//     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+// }
 
 //**reads target voltage for hall sensor
 //**compute pwm needed with PID //
@@ -145,11 +140,30 @@ void VoiceCoilController::controllerTask() {
         // Serial.printf("-------------- PLAY key at: %d, %d\n", next_note_ptr- start_addr,*next_note_ptr );
 
         //play all notes at current key position (without moving stepper) until delimiter -5 is hit
-        while(*next_note_ptr != -5){
+        while(*next_note_ptr != -5 && *next_note_ptr != -1){
             //send to voice coil
+
+            // if(note_num==5){
+            //         // SYNC BARRIER ---
+            //     Serial.printf("Motor %d:waiting\n", PWM_CHANNEL);
+            //     const EventBits_t finger1Bit = (1 << 0);
+            //     const EventBits_t finger2Bit = (1 << 1);
+            //     const EventBits_t allReadyBits = finger1Bit | finger2Bit;
+            //     EventBits_t thisBit = (PWM_CHANNEL == 0) ? finger1Bit : finger2Bit;
+            //     if (syncPlayEventGroup != NULL) {
+            //         //motor waitinghere 
+            //         xEventGroupSync(
+            //             syncPlayEventGroup,
+            //             thisBit,         
+            //             allReadyBits,    
+            //             portMAX_DELAY    
+            //         );
+            //     }
+
+            // }
             send_pwm(*next_note_ptr);
 
-            //hold each input for 10ms
+            //hold each input for 10ms if moving to next 
             xTimerStop(voice_coil_timer, 0);     // reset timer if already running
             xTimerStart(voice_coil_timer, 0);    // will lift finger after 10 ms
             next_note_ptr++;
@@ -162,20 +176,28 @@ void VoiceCoilController::controllerTask() {
             // }
             
         }
-        //lift finger;
-        send_pwm(PWM_t::UP);
-        //give 100ms to go up
-        xTimerStop(finger_up_timer, 0);     
-        xTimerStart(finger_up_timer, 0);
-        xTaskNotifyWait(0, FINGER_UP_DONE, NULL, portMAX_DELAY);
-
-        next_note_ptr++; //skip the -5 delimiter
-        if(PWM_CHANNEL == 0){        
-            // Serial.printf("finger %d next notes %d at %d\n",PWM_CHANNEL+1, *next_note_ptr, next_note_ptr);
-        }        
+        note_num++;
+        //lift finger after note is played if moving:
+        // // //give 10ms to go up if moving 
+        // if(*next_note_ptr==-5){
+        //     // Serial.printf("finger %d next notes %d going up\n",PWM_CHANNEL+1, *next_note_ptr);
+        //     // send_pwm(PWM_t::UP);
+        //     // xTimerStop(finger_up_timer, 0);     
+        //     // xTimerStart(finger_up_timer, 0);
+        //     // xTaskNotifyWait(0, FINGER_UP_DONE, NULL, portMAX_DELAY);
+        //     xTaskNotifyGive(coordinatorTaskHandle);
+        // }else{
+        //     //notify coordinator done with current key so can move to next
+        //     xTaskNotifyGive(coordinatorTaskHandle);
+        // }
+        xTaskNotifyGive(coordinatorTaskHandle);
+        next_note_ptr++; //skip delimiter
+        // if(PWM_CHANNEL == 0){        
+        //     // Serial.printf("finger %d next notes %d at %d\n",PWM_CHANNEL+1, *next_note_ptr, next_note_ptr);
+        // }        
         if(next_note_ptr >= end_addr){
             // Serial.printf("F%d resetting notes to %d at %d\n", PWM_CHANNEL+1, *start_addr, start_addr);
-
+            note_num=0;
             next_note_ptr = start_addr; //reset notes to start of array
             // Clear any pending notifications 
             ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);

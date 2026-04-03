@@ -35,7 +35,7 @@ void Coordinator::coordinatorTaskEntry( void* pvParameters) {
 
 
 void Coordinator::coordinatorTask() {
-
+    //sync time to ensure both fingers start together
     if (playSyncGroup != NULL) {
         xEventGroupSync(
             playSyncGroup,
@@ -51,19 +51,21 @@ void Coordinator::coordinatorTask() {
         // wait until moved
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         
-        if (playSyncGroup != NULL) {
-            xEventGroupSync(
-                playSyncGroup, 
-                mySyncBit,       // "I am ready"
-                allFingersMask,  // "Wait for everyone else"
-                portMAX_DELAY
-            );
-        }
+        // if (playSyncGroup != NULL) {
+        //     xEventGroupSync(
+        //         playSyncGroup, 
+        //         mySyncBit,       // "I am ready"
+        //         allFingersMask,  // "Wait for everyone else"
+        //         portMAX_DELAY
+        //     );
+        // }
         // tell finger to play note
+        // Serial.printf("MOTOR %d: moving stepper done, telling finger to play\n", xPortGetCoreID()+1);
         xTaskNotifyGive(fingerTaskHandle);
         // wait until finger up
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         //yeild cpu
+        // Serial.printf("MOTOR %d: finger done playing, yeilding\n", xPortGetCoreID()+1);
         vTaskDelay(pdMS_TO_TICKS(1)); //small delay to prevent starvation of other tasks, also gives time for serial print to go through before next note (for data logger)
     }
 }

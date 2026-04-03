@@ -13,7 +13,7 @@ struct StepperConfig {
     rmt_channel_t RMT_CH;
     //all finges same stepsper key and max keys for now
     static constexpr int MAX_KEYS = 25; 
-    static constexpr int STEPS_PER_KEY = 35 * 4*3-40;
+    static constexpr int STEPS_PER_KEY = 420;//380;
 
 };
 
@@ -38,7 +38,8 @@ private:
     EventGroupHandle_t syncStartEventGroup;
     // hardware config
     StepperConfig config;
-    int homing = 0;
+    //flag for isr to notify main ctrlr
+    int isr_flag = 0;
 
     // current position
     int current_key = 0;
@@ -60,7 +61,7 @@ private:
 
     // helper
     void home();
-    void move_keys(int keys, direction dirr, uint16_t hz = 10000);
+    void move_keys(int keys, direction dirr, float time_ms = 20.0f);
     void populate_step_buffer(uint16_t steps, uint16_t hz);
     static inline rmt_item32_t trapezoid(int steps, int stepCount);
     void rehome();

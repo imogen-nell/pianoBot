@@ -9,11 +9,11 @@
 class VoiceCoilController {
 public:
     // PWM values for finger positions
-    enum PWM_t { UP = -100, DOWN = 200, REST = 0 };
+    enum PWM_t { UP = -200, DOWN = -100, REST = 0 };
     //constructor
     VoiceCoilController(uint8_t pwm_pin, uint8_t dir_pin, uint8_t pwm_channel,
                         float kp, float ki, float kd,
-                        const int* next_note_ptr, int notes_arr_len);
+                        const int* next_note_ptr, int notes_arr_len, EventGroupHandle_t syncGroup);
 
     TaskHandle_t getTaskHandle() const { return vcTaskHandle; }
     void setCoordinatorHandle(TaskHandle_t handle);
@@ -44,7 +44,7 @@ private:
 
     // --- Timers ---
     TimerHandle_t voice_coil_timer = nullptr; // 10 ms
-    TimerHandle_t finger_up_timer = nullptr;  // 100 ms
+    // TimerHandle_t finger_up_timer = nullptr;  // 100 ms
     static constexpr uint32_t NOTE_DONE = (1 << 0);
     static constexpr uint32_t FINGER_UP_DONE = (1 << 1);
 
@@ -57,7 +57,12 @@ private:
 
     // --- Timer callbacks ---
     static void note_timer_cb(TimerHandle_t xTimer);
-    static void finger_up_cb(TimerHandle_t xTimer);
+    // static void finger_up_cb(TimerHandle_t xTimer);
+
+    //syncing
+    EventGroupHandle_t syncPlayEventGroup;
+    int note_num=0;
+
 };
 
 // #pragma once
