@@ -131,7 +131,7 @@ void StepperController::run(){
 
         //move to next key 
         if(key_diff != 0){
-            // Serial.printf("Motor %d: moving %d keys\n", config.RMT_CH + 1, abs(key_diff));
+            Serial.printf("Motor %d: moving  to key %d \n", config.RMT_CH + 1, next_key_ptr->key_pos);
 
             move_keys(abs(key_diff), (key_diff > 0) ? direction::LEFT : direction::RIGHT,  next_key_ptr->time_ms);
             // Wait until RMT transmission finishes (from ISR) - callback will unblock
@@ -177,76 +177,20 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
     uint32_t steps = (keys * config.STEPS_PER_KEY > step_buffer_capacity) ? step_buffer_capacity : keys * config.STEPS_PER_KEY;
-    // Serial.printf("-------------- moving %d steps--\n", steps);
-    // for(int i = 0; i < steps; i++){
-    //     step_buffer[i] = trapezoid(steps, i);
-    // }
-
-    float total_time_us = time_ms * 1000.0f;
-
-    // partition time into acce/decel/cruise phases
-    int accel_steps = steps / 3;
-    int decel_steps = steps / 3;
-    int cruise_steps = steps - accel_steps - decel_steps;
-
-    // base timing (average)
-    float avg_step_time = total_time_us / steps;
-
-    // define min/max step times (tune)
-    float max_step_time = avg_step_time * 2.0f;  // slow start
-    float min_step_time = avg_step_time * 0.5f;  // fast cruise
-
-    int idx = 0;
-
-    // --- ACCEL ---
-    for (int i = 0; i < accel_steps; i++, idx++) {
-        float t = (float)i / accel_steps;
-        float step_time = max_step_time - t * (max_step_time - min_step_time);
-
-        uint32_t half = (uint32_t)(step_time / 2);
-
-        step_buffer[idx].level0 = 1;
-        step_buffer[idx].duration0 = half;
-        step_buffer[idx].level1 = 0;
-        step_buffer[idx].duration1 = half;
+    float time_now = millis();
+    for(int i = 0; i < steps; i++){
+        step_buffer[i] = trapezoid(steps, i);
     }
-    // rmt_write_items(config.RMT_CH, step_buffer, accel_steps, true);
-
-    // --- CRUISE ---
-    for (int i = 0; i < cruise_steps; i++, idx++) {
-        uint32_t half = (uint32_t)(min_step_time / 2);
-
-        step_buffer[idx].level0 = 1;
-        step_buffer[idx].duration0 = half;
-        step_buffer[idx].level1 = 0;
-        step_buffer[idx].duration1 = half;
-        // step_buffer[i].level0 = 1;
-        // step_buffer[i].duration0 = half;
-        // step_buffer[i].level1 = 0;
-        // step_buffer[i].duration1 = half;
+    float elapsed = millis() - time_now;
+    int max_time = next_key_ptr->time_ms;
+    if(elapsed > max_time){
+        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for motor %d\n", elapsed, max_time, config.RMT_CH + 1);
     }
-    // rmt_write_items(config.RMT_CH, step_buffer, cruise_steps, true);
-    // --- DECEL ---
-    for (int i = 0; i < decel_steps; i++, idx++) {
-        float t = (float)i / decel_steps;
-        float step_time = min_step_time + t * (max_step_time - min_step_time);
-
-        uint32_t half = (uint32_t)(step_time / 2);
-
-        step_buffer[idx].level0 = 1;
-        step_buffer[idx].duration0 = half;
-        step_buffer[idx].level1 = 0;
-        step_buffer[idx].duration1 = half;
-        // step_buffer[i].level0 = 1;
-        // step_buffer[i].duration0 = half;
-        // step_buffer[i].level1 = 0;
-        // step_buffer[i].duration1 = half;
+    else if (elapsed < max_time ){
+        //wait for synchronization
+        vTaskDelay(pdMS_TO_TICKS(max_time - elapsed));
     }
-
-
-
-    // rmt_write_items(config.RMT_CH, step_buffer, decel_steps, false);
-
+   
     // // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately
     //interrupt (callback within ISR) raised when RMT item complete
@@ -321,17 +265,15 @@ void StepperController::home(){
     //make faster : reduce delay, but may cause missed steps and less accuracy
     while (digitalRead(config.HOME_SWITCH_PIN) == LOW) {
         digitalWrite(config.STEP_PIN, HIGH);
-        ets_delay_us(50);
-        // vTaskDelay(pdMS_TO_TICKS(1));    
+        ets_delay_us(100);
         digitalWrite(config.STEP_PIN, LOW);
-        // vTaskDelay(pdMS_TO_TICKS(1)); 
-        ets_delay_us(50);
+        ets_delay_us(100);
     }
-    Serial.printf("--------------  motor %d homed ---------------\n", config.RMT_CH+1, next_key_ptr->key_pos);
+    Serial.printf("--------------  motor %d homed ---------------\n", config.RMT_CH+1);
 
 
-        //update positoin
-        current_key = (config.RMT_CH == 0) ? f1_home_key : f2_home_key;
+    //update positoin
+    current_key = (config.RMT_CH == 0) ? f1_home_key : f2_home_key;
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
