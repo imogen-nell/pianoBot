@@ -19,7 +19,6 @@ struct StepperConfig {
 
 
 
-
 class StepperController {
 public:
     enum direction {RIGHT, LEFT};
@@ -45,6 +44,7 @@ private:
     int current_key = 0;
     rmt_item32_t* step_buffer = nullptr;
     uint32_t step_buffer_capacity = 0;
+    int curr_move_us = 0;
 
 
     // key array pointers
@@ -63,7 +63,7 @@ private:
     void home();
     void move_keys(int keys, direction dirr, float time_ms = 20.0f);
     void populate_step_buffer(uint16_t steps, uint16_t hz);
-    static inline rmt_item32_t trapezoid(int steps, int stepCount);
+    static inline std::pair<rmt_item32_t, int> trapezoid(int steps, int stepCount);
     void rehome();
 
     // FreeRTOS entry wrapper

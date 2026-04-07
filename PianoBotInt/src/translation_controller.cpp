@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <utility>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -177,25 +178,48 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
     uint32_t steps = (keys * config.STEPS_PER_KEY > step_buffer_capacity) ? step_buffer_capacity : keys * config.STEPS_PER_KEY;
-    float time_now = millis();
+    curr_move_us = 0;
     for(int i = 0; i < steps; i++){
-        step_buffer[i] = trapezoid(steps, i);
+        auto result = trapezoid(steps, i);
+        step_buffer[i] = result.first;
+        curr_move_us += result.second;
     }
-    float elapsed = millis() - time_now;
     int max_time = next_key_ptr->time_ms;
-    if(elapsed > max_time){
-        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for motor %d\n", elapsed, max_time, config.RMT_CH + 1);
+    if(curr_move_us/1000 > max_time){
+        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for motor %d\n", curr_move_us/1000, max_time, config.RMT_CH + 1);
+        rmt_write_items(config.RMT_CH, step_buffer, steps, false);
     }
-    else if (elapsed < max_time ){
+    else if (curr_move_us/1000 < max_time ){
         //wait for synchronization
-        vTaskDelay(pdMS_TO_TICKS(max_time - elapsed));
+        
+        rmt_write_items(config.RMT_CH, step_buffer, steps, true);
+        // uint32_t ms_to_wait = (max_time * 1000) - (uint32_t)curr_move_us;
+        uint32_t total_wait_us = (max_time * 1000) - (uint32_t)curr_move_us;
+        //repopulate step buffer with 0s for wait
+        int i = 0;
+        while (total_wait_us > 0 && i < step_buffer_capacity) {
+            // RMT duration is 15-bit (max 32767). Use 30000 for a safe "chunk".
+            uint32_t chunk = (total_wait_us > 30000) ? 30000 : total_wait_us;
+            
+            step_buffer[i].level0 = 0;
+            step_buffer[i].duration0 = chunk;
+            step_buffer[i].level1 = 0;
+            step_buffer[i].duration1 = 0; // Use 0 to ignore the second half of the item
+            
+            total_wait_us -= chunk;
+            i++;
+        }
+        rmt_write_items(config.RMT_CH, step_buffer, i, false);
+
+    }
+    else{
+        //no wait, move immediately
+        rmt_write_items(config.RMT_CH, step_buffer, steps, false);
     }
    
     // // send step waveform from rmt_item array, NON BLOCKING
     //start RMT engine, DMA begin outputting step pulses, returns immediately
     //interrupt (callback within ISR) raised when RMT item complete
-    rmt_write_items(config.RMT_CH, step_buffer, steps, false);
-
     //update current key position
     current_key += keys * ((dirr == direction::RIGHT) ? -1 : 1);
 }
@@ -214,7 +238,7 @@ void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
     }
 }
 
-rmt_item32_t StepperController::trapezoid(int steps, int stepCount) {   
+std::pair<rmt_item32_t, int> StepperController::trapezoid(int steps, int stepCount) {   
     double vel_m = 0.472; // (m/s)
     double acc_m = 100.0; // (m/s^2) 
 
@@ -253,7 +277,7 @@ rmt_item32_t StepperController::trapezoid(int steps, int stepCount) {
     rmt_item32_t item;
     item.level0 = 1; item.duration0 = half_period_us;    
     item.level1 = 0; item.duration1 = half_period_us;   
-    return item;
+    return {item, cn};
 }
 
 //home to leftmost key 
