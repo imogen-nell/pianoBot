@@ -13,7 +13,7 @@ struct StepperConfig {
     rmt_channel_t RMT_CH;
     //all finges same stepsper key and max keys for now
     static constexpr int MAX_KEYS = 10; //was 25
-    static constexpr int STEPS_PER_KEY = 805;//380;
+    static constexpr int STEPS_PER_KEY = 355; //805;//380;
 
 };
 
@@ -30,7 +30,12 @@ public:
     
     static StepperController* instances[2]; // Array of pointers ( 2 for 2 fingers)
     static void IRAM_ATTR global_rmt_tx_done_cb(rmt_channel_t channel, void *arg);
-
+    void set_physics(double short_vel, double short_accel, double long_vel, double long_accel){
+        this->short_vel = short_vel;
+        this->long_vel = long_vel;
+        this->long_accel = long_accel;
+        this->short_accel = short_accel;
+    }
 
 private:
     //rehome sync
@@ -63,7 +68,11 @@ private:
     void home();
     void move_keys(int keys, direction dirr, float time_ms = 20.0f);
     void populate_step_buffer(uint16_t steps, uint16_t hz);
-    static inline std::pair<rmt_item32_t, int> trapezoid(int steps, int stepCount);
+    std::pair<rmt_item32_t, int> trapezoid(int steps, int stepCount);
+    double short_vel = 0.0; 
+    double long_vel = 0.0;
+    double short_accel = 0.0; 
+    double long_accel = 0.0; 
     void rehome();
 
     // FreeRTOS entry wrapper

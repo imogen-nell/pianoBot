@@ -140,7 +140,7 @@ void VoiceCoilController::controllerTask() {
         // Serial.printf("-------------- PLAY key at: %d, %d\n", next_note_ptr- start_addr,*next_note_ptr );
 
         //play all notes at current key position (without moving stepper) until delimiter -5 is hit
-        while(*next_note_ptr != -5 && *next_note_ptr != -1){
+        while(*next_note_ptr != -5 ){
             //send to voice coil
 
             // if(note_num==5){

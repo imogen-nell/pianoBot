@@ -8,10 +8,11 @@
 #include "keys.h"
 
 typedef enum{
-    f1_home_key = 47,
-    f2_home_key = 52
+    f1_home_key = 44,
+    f2_home_key = 49
     
 } home_key;
+
 
 StepperController* StepperController::instances[2] = {nullptr};
 //init stepper motor controller
@@ -186,7 +187,8 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     }
     int max_time = next_key_ptr->time_ms;
     if(curr_move_us/1000 > max_time){
-        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for motor %d\n", curr_move_us/1000, max_time, config.RMT_CH + 1);
+        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for move of keys  %d\n", curr_move_us/1000.0f, max_time, config.RMT_CH + 1);
+        Serial.print("Target ms: "); Serial.println(next_key_ptr->time_ms);
         rmt_write_items(config.RMT_CH, step_buffer, steps, false);
     }
     else if (curr_move_us/1000 < max_time ){
@@ -239,8 +241,19 @@ void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
 }
 
 std::pair<rmt_item32_t, int> StepperController::trapezoid(int steps, int stepCount) {   
-    double vel_m = 0.472; // (m/s)
-    double acc_m = 100.0; // (m/s^2) 
+
+    double vel_m = (steps / this->config.STEPS_PER_KEY <= 4 ? this->short_vel : this->long_vel);
+    double acc_m = (steps / this->config.STEPS_PER_KEY <= 4 ? this->short_accel : this->long_accel);
+    // if( steps / this->config.STEPS_PER_KEY > 4){
+    //     vel_m = .8; //0.472; // (m/s)
+    //     acc_m = 300.0;//100.0; // (m/s^2) 
+
+    // }else{
+    //     vel_m = 0.6; //0.472; // (m/s)
+    //     acc_m =200.0;//100.0; // (m/s^2)   
+    // }
+    // double vel_m = 1.0; //0.472; // (m/s)
+    // double acc_m = 250.0;//100.0; // (m/s^2) 
 
     const double spm = 1600.0 / (2.0 * PI * 0.0175);
     double acc = spm * acc_m;  
@@ -301,7 +314,7 @@ void StepperController::home(){
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
-    int distance_to_first_key = abs(current_key - next_key_ptr->key_pos)* 800;//config.STEPS_PER_KEY;
+    int distance_to_first_key = abs(current_key - next_key_ptr->key_pos)* 400;// should be 800 for 1/16 step size 
     
     for(int i = 0; i < distance_to_first_key ; i++){
         digitalWrite(config.STEP_PIN, HIGH);
