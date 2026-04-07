@@ -6,6 +6,12 @@
 #include "driver/rmt.h"
 #include "keys.h"
 
+typedef enum{
+    f1_home_key = 47,
+    f2_home_key = 52
+    
+} home_key;
+
 StepperController* StepperController::instances[2] = {nullptr};
 //init stepper motor controller
 StepperController::StepperController(const StepperConfig& cfg, const key_entry* key_positions_start, int key_arr_len,EventGroupHandle_t syncGroup)
@@ -315,21 +321,23 @@ void StepperController::home(){
     //make faster : reduce delay, but may cause missed steps and less accuracy
     while (digitalRead(config.HOME_SWITCH_PIN) == LOW) {
         digitalWrite(config.STEP_PIN, HIGH);
-        ets_delay_us(100);
+        ets_delay_us(50);
         // vTaskDelay(pdMS_TO_TICKS(1));    
         digitalWrite(config.STEP_PIN, LOW);
         // vTaskDelay(pdMS_TO_TICKS(1)); 
-        ets_delay_us(100);
+        ets_delay_us(50);
     }
     Serial.printf("--------------  motor %d homed ---------------\n", config.RMT_CH+1, next_key_ptr->key_pos);
 
 
-    //update positoin
-    current_key = (config.RMT_CH == 0) ? 32 : 57;
+        //update positoin
+        current_key = (config.RMT_CH == 0) ? f1_home_key : f2_home_key;
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
-    for(int i = 0; i < abs(current_key - next_key_ptr->key_pos) * config.STEPS_PER_KEY; i++){
+    int distance_to_first_key = abs(current_key - next_key_ptr->key_pos)* 800;//config.STEPS_PER_KEY;
+    
+    for(int i = 0; i < distance_to_first_key ; i++){
         digitalWrite(config.STEP_PIN, HIGH);
         ets_delay_us(100); 
         digitalWrite(config.STEP_PIN, LOW);
@@ -367,7 +375,7 @@ void StepperController::rehome( ){
     Serial.printf("Motor %d: home hit \n", config.RMT_CH + 1);
   
     //update position to home key (leftmost)
-    current_key = (config.RMT_CH == 0) ? 32 : 57;
+    current_key = (config.RMT_CH == 0) ? f1_home_key : f2_home_key;
 
     // //move to start key here 
     
