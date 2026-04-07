@@ -131,7 +131,7 @@ void StepperController::run(){
 
         //move to next key 
         if(key_diff != 0){
-            Serial.printf("Motor %d: moving  to key %d \n", config.RMT_CH + 1, next_key_ptr->key_pos);
+            // Serial.printf("Motor %d: moving  to key %d \n", config.RMT_CH + 1, next_key_ptr->key_pos);
 
             move_keys(abs(key_diff), (key_diff > 0) ? direction::LEFT : direction::RIGHT,  next_key_ptr->time_ms);
             // Wait until RMT transmission finishes (from ISR) - callback will unblock

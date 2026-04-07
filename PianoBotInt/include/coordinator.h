@@ -5,7 +5,7 @@
 
 class Coordinator {
 public:
-    Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int coreID, EventGroupHandle_t playSyncGroup, EventBits_t mySyncBit, EventBits_t allFingersMask);
+    Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int coreID, EventGroupHandle_t playSyncGroup, EventBits_t mySyncBit, EventBits_t allFingersMask, bool both = false);
     TaskHandle_t getTaskHandle() const; //const: calling fcn doesnt modisy this object
 
 private:
@@ -17,6 +17,7 @@ private:
     EventBits_t mySyncBit;            // Unique to this instance (e.g., 1 << 0)
     EventBits_t allFingersMask;
     int coreID; //for data logging, indicates which finger is playing
+    bool both; //
 
     static void coordinatorTaskEntry(void* pvParameters);
     void coordinatorTask();

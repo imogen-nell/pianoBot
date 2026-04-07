@@ -5,8 +5,8 @@
 #include "freertos/event_groups.h"
 
 
-Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int coreID, EventGroupHandle_t playSyncGroup, EventBits_t mySyncBit, EventBits_t allFingersMask)
-    : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask), playSyncGroup(playSyncGroup), mySyncBit(mySyncBit), allFingersMask(allFingersMask)
+Coordinator::Coordinator(TaskHandle_t fingerTask, TaskHandle_t stepperTask, int coreID, EventGroupHandle_t playSyncGroup, EventBits_t mySyncBit, EventBits_t allFingersMask, bool both)
+    : fingerTaskHandle(fingerTask), stepperTaskHandle(stepperTask), playSyncGroup(playSyncGroup), mySyncBit(mySyncBit), allFingersMask(allFingersMask), both(both)
 {
 
     xTaskCreatePinnedToCore(
@@ -36,13 +36,15 @@ void Coordinator::coordinatorTaskEntry( void* pvParameters) {
 
 void Coordinator::coordinatorTask() {
     //sync time to ensure both fingers start together
-    if (playSyncGroup != NULL) {
-        xEventGroupSync(
-            playSyncGroup,
-            mySyncBit,        // Use the instance bit passed in constructor
-            allFingersMask,   // Use the mask passed in constructor
-            portMAX_DELAY
-        );
+    if (both){
+        if (playSyncGroup != NULL) {
+            xEventGroupSync(
+                playSyncGroup,
+                mySyncBit,        // Use the instance bit passed in constructor
+                allFingersMask,   // Use the mask passed in constructor
+                portMAX_DELAY
+            );
+        }
     }
 
     while(1) {
