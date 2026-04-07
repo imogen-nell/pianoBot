@@ -6,6 +6,8 @@
 #include "driver/rmt.h"
 #include "keys.h"
 
+enum home_key {f1_home = 30, f2_home = 55};
+
 StepperController* StepperController::instances[2] = {nullptr};
 //init stepper motor controller
 StepperController::StepperController(const StepperConfig& cfg, const key_entry* key_positions_start, int key_arr_len,EventGroupHandle_t syncGroup)
