@@ -59,29 +59,29 @@ void setup() {
   rehomeSync = xEventGroupCreate();
   playSyncGroup = xEventGroupCreate();
   vcSyncGroup = xEventGroupCreate();
-  bool both_fingers_playing = true;
+  bool both_fingers_playing = false;
 
     /// -------------------- RILEDT  FINGER 1 -----------------------------------
 
   StepperConfig stepper_cfg_1 = { STEP_PIN_1, DIR_PIN_1, HOME_BUTTON_1, RMT_CHANNEL_0, 390};//for test
   static StepperController stepper_1(stepper_cfg_1, happy_birthday_keys_L, KEYS_LEN_L, rehomeSync); // stepper
   // short vel accel , long vel accel 
-  // stepper_1.set_physics(0.8,300.0,0.8,200.0); - wrong
-  // stepper_1.set_physics(0.472,50.0,0.472,50.0); - wrong 
   stepper_1.set_physics(0.3,300.0,0.3,200.0);
   static VoiceCoilController vc1(5,2, 0, 0.5f, 0.1f, 0.005f,happy_birthday_notes_L,NOTE_LEN_L,vcSyncGroup ); // voice coil
   // Wire tasks together 
   static Coordinator finger1(vc1.getTaskHandle(), stepper_1.getTaskHandle(), 0, playSyncGroup, FINGER_1_READY_BIT, ALL_FINGERS_READY,both_fingers_playing); //static' ensures the object lives for the entire program lifetime
   vc1.setCoordinatorHandle(finger1.getTaskHandle());
   stepper_1.setCoordinatorHandle(finger1.getTaskHandle());
-  /// -----------------------------------------------------------------
+  // // / -----------------------------------------------------------------
 
 
   // // //   / -------------------- FINGER 2 -----------------------------------
   //init hardware drivers 
-  StepperConfig stepper_cfg_2 = { STEP_PIN_2, DIR_PIN_2, HOME_BUTTON_2, RMT_CHANNEL_1, 393};
+  StepperConfig stepper_cfg_2 = { STEP_PIN_2, DIR_PIN_2, HOME_BUTTON_2, RMT_CHANNEL_1, 395};//395
   static StepperController stepper_2(stepper_cfg_2, happy_birthday_keys_R, KEYS_LEN_R, rehomeSync); // stepper
-  stepper_2.set_physics(0.3,300.0,0.3,200.0);
+  // stepper_2.set_physics(0.35,100.0,0.35,100.0);
+  // stepper_2.set_physics(0.256,320.0,0.256,250.0);
+  stepper_2.set_physics(0.25,150.0,0.32,100.0);
   static VoiceCoilController vc2(9, 10, 1, 0.5f, 0.1f, 0.005f,happy_birthday_notes_R,NOTE_LEN_R,vcSyncGroup ); // voice coil
   // // // // Wire tasks together 
   static Coordinator finger2(vc2.getTaskHandle(), stepper_2.getTaskHandle(), 1, playSyncGroup, FINGER_2_READY_BIT, ALL_FINGERS_READY,both_fingers_playing); //static' ensures the object lives for the entire program lifetime

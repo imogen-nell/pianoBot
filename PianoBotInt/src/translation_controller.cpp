@@ -8,8 +8,8 @@
 #include "keys.h"
 
 typedef enum{
-    f1_home_key = 43,
-    f2_home_key = 47
+    f1_home_key = 50,//45
+    f2_home_key = 49 //
     
 } home_key;
 
@@ -39,14 +39,14 @@ StepperController::StepperController(const StepperConfig& cfg, const key_entry* 
     );
 
     assert(step_buffer);
-    wait_buffer_capacity = step_buffer_capacity / 2; 
+    wait_buffer_capacity = step_buffer_capacity / 4; 
 
-    wait_buffer = (rmt_item32_t*) heap_caps_malloc(
-        wait_buffer_capacity * sizeof(rmt_item32_t),
-        MALLOC_CAP_DMA
-    );
+    // wait_buffer = (rmt_item32_t*) heap_caps_malloc(
+    //     wait_buffer_capacity * sizeof(rmt_item32_t),
+    //     MALLOC_CAP_DMA
+    // );
 
-    assert(wait_buffer);
+    // assert(wait_buffer);
 
     
 
@@ -169,6 +169,13 @@ void StepperController::run(){
 //           dirr  - direction RIGHT/LEFT
 //           step_time - time b1etween step in ms (default 4ms)
 void StepperController::move_keys(int keys, direction dirr, float time_ms ){
+    
+
+    // if (busy) {
+    //     Serial.printf("REENTRY DETECTED motos %d\n", config.RMT_CH);
+    // }
+    // busy = true;
+
     //ensure move is in bounds
     if (keys <= 0 || time_ms <= 0)  return;
     //todo: shitty check tbh
@@ -183,9 +190,9 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
    
 
 
-    rmt_wait_tx_done(config.RMT_CH, portMAX_DELAY); // safety for blocking move when wait is needed 
+    // rmt_wait_tx_done(config.RMT_CH, portMAX_DELAY); // safety for blocking move when wait is needed 
     digitalWrite(config.DIR_PIN, dirr);
-    ets_delay_us(5);  // ESP32-safe microsecond delay
+    ets_delay_us(2);  // ESP32-safe microsecond delay
 
     uint32_t steps = (keys * config.STEPS_PER_KEY > step_buffer_capacity) ? step_buffer_capacity : keys * config.STEPS_PER_KEY;
     curr_move_us = 0;
@@ -196,40 +203,58 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     }
     int max_time = next_key_ptr->time_ms;
     if(curr_move_us/1000 > max_time){
-        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for move of keys  %d\n", curr_move_us/1000.0f, max_time, keys);
+        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for move of keys %d  for motor %d\n", curr_move_us/1000.0f, max_time, keys, config.RMT_CH+1);
         Serial.print("Target ms: "); Serial.println(next_key_ptr->time_ms);
         rmt_write_items(config.RMT_CH, step_buffer, steps, false);
     }
     else if (curr_move_us/1000 < max_time ){
+        uint32_t total_wait_us = (max_time * 1000) - (uint32_t)curr_move_us;
+        int wait_index = steps;
+
+        while(total_wait_us > 0 && wait_index < step_buffer_capacity){
+            uint32_t chunk = (total_wait_us > 30000) ? 30000 : total_wait_us;
+
+            step_buffer[wait_index].level0 = 0;
+            step_buffer[wait_index].duration0 = chunk;
+            step_buffer[wait_index].level1 = 0;
+            step_buffer[wait_index].duration1 = 0;
+
+            total_wait_us -= chunk;
+            wait_index++;
+            steps++;
+        }
+        rmt_write_items(config.RMT_CH, step_buffer, steps, false); 
+        /////
         //wait for synchronization
         if(steps> step_buffer_capacity){
             Serial.printf("WARNING: step buffer overflow for move of keys %d, truncating steps to %d\n", keys, step_buffer_capacity / config.STEPS_PER_KEY);
         }
-        rmt_write_items(config.RMT_CH, step_buffer, steps, true);
-        // uint32_t ms_to_wait = (max_time * 1000) - (uint32_t)curr_move_us;
-        uint32_t total_wait_us = (max_time * 1000) - (uint32_t)curr_move_us;
-        //repopulate step buffer with 0s for wait
-        int i = 0;
-        while (total_wait_us > 0 && i < step_buffer_capacity) {
-            // RMT duration is 15-bit (max 32767). Use 30000 for a safe "chunk".
-            uint32_t chunk = (total_wait_us > 30000) ? 30000 : total_wait_us;
+        // rmt_write_items(config.RMT_CH, step_buffer, steps, true);
+        // // uint32_t ms_to_wait = (max_time * 1000) - (uint32_t)curr_move_us;
+        // uint32_t total_wait_us = (max_time * 1000) - (uint32_t)curr_move_us;
+        // //repopulate step buffer with 0s for wait
+        // int i = 0;
+        // while (total_wait_us > 0 && i < step_buffer_capacity) {
+        //     // RMT duration is 15-bit (max 32767). Use 30000 for a safe "chunk".
+        //     uint32_t chunk = (total_wait_us > 30000) ? 30000 : total_wait_us;
             
-            wait_buffer[i].level0 = 0;
-            wait_buffer[i].duration0 = chunk;
-            wait_buffer[i].level1 = 0;
-            wait_buffer[i].duration1 = 0; // Use 0 to ignore the second half of the item
+        //     wait_buffer[i].level0 = 0;
+        //     wait_buffer[i].duration0 = chunk;
+        //     wait_buffer[i].level1 = 0;
+        //     wait_buffer[i].duration1 = 0; // Use 0 to ignore the second half of the item
             
-            total_wait_us -= chunk;
-            i++;
-        }
-        if (i >= wait_buffer_capacity) {
-            Serial.printf("WARNING: Wait buffer overflow for wait time %f ms, truncating wait\n", total_wait_us / 1000.0f);
-        }
-        rmt_write_items(config.RMT_CH, wait_buffer, i, false);
+        //     total_wait_us -= chunk;
+        //     i++;
+        // }
+        // if (i >= wait_buffer_capacity) {
+        //     Serial.printf("WARNING: Wait buffer overflow for wait time %f ms, truncating wait\n", total_wait_us / 1000.0f);
+        // }
+        // rmt_write_items(config.RMT_CH, wait_buffer, i, false);
 
     }
     else{
         //no wait, move immediately
+        Serial.printf("no wait motor %d", config.RMT_CH+1);
         rmt_write_items(config.RMT_CH, step_buffer, steps, false);
     }
    
@@ -238,6 +263,8 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     //interrupt (callback within ISR) raised when RMT item complete
     //update current key position
     current_key += keys * ((dirr == direction::RIGHT) ? -1 : 1);
+    // Serial.printf("current_key %d: motor %d \n", current_key, config.RMT_CH+1);
+    // busy = false;
 }
 
 
@@ -256,8 +283,8 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
 
 std::pair<rmt_item32_t, int> StepperController::trapezoid(int steps, int stepCount) {   
 
-    double vel_m = (steps / this->config.STEPS_PER_KEY <= 4 ? this->short_vel : this->long_vel);
-    double acc_m = (steps / this->config.STEPS_PER_KEY <= 4 ? this->short_accel : this->long_accel);
+    double vel_m = (steps / this->config.STEPS_PER_KEY <= 3 ? this->short_vel : this->long_vel);
+    double acc_m = (steps / this->config.STEPS_PER_KEY <= 3 ? this->short_accel : this->long_accel);
     // if( steps / this->config.STEPS_PER_KEY > 4){
     //     vel_m = .8; //0.472; // (m/s)
     //     acc_m = 300.0;//100.0; // (m/s^2) 
@@ -300,11 +327,14 @@ std::pair<rmt_item32_t, int> StepperController::trapezoid(int steps, int stepCou
     if (cn < cmin) cn = cmin;
 
     uint32_t half_period_us = (uint32_t)(cn / 2.0);
-    if (half_period_us < 2) half_period_us = 2;  // Minimum 2 µs pulse
+    uint32_t min_pulse = 2.0;
+    if (half_period_us < min_pulse) half_period_us = min_pulse;  // Minimum 2 µs pulse
 
     rmt_item32_t item;
     item.level0 = 1; item.duration0 = half_period_us;    
-    item.level1 = 0; item.duration1 = half_period_us;   
+    item.level1 = 0; item.duration1 = half_period_us; 
+    // Serial.printf("Step %d: half period %d us, cn %f\n", stepCount, half_period_us, cn);
+  
     return {item, cn};
 }
 

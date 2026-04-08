@@ -14,7 +14,7 @@ struct StepperConfig {
     int STEPS_PER_KEY;
 
     //all finges same stepsper key and max keys for now
-    static constexpr int MAX_KEYS = 15; //was 25
+    static constexpr int MAX_KEYS = 12; //was 25
     // static constexpr int STEPS_PER_KEY = 390; //400;//380;
 
 };
@@ -49,7 +49,8 @@ private:
 
     // current position .. transmission time 
     int current_key = 0;
-    int curr_move_us = 0;
+    double curr_move_us = 0;
+    bool busy = false;
 
     //rmt signal buffers 
     rmt_item32_t* step_buffer = nullptr;
