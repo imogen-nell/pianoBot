@@ -11,9 +11,11 @@ struct StepperConfig {
     gpio_num_t DIR_PIN;
     gpio_num_t HOME_SWITCH_PIN;
     rmt_channel_t RMT_CH;
+    int STEPS_PER_KEY;
+
     //all finges same stepsper key and max keys for now
-    static constexpr int MAX_KEYS = 10; //was 25
-    static constexpr int STEPS_PER_KEY = 390; //400;//380;
+    static constexpr int MAX_KEYS = 15; //was 25
+    // static constexpr int STEPS_PER_KEY = 390; //400;//380;
 
 };
 

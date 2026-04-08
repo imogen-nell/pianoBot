@@ -8,8 +8,8 @@
 #include "keys.h"
 
 typedef enum{
-    f1_home_key = 44,
-    f2_home_key = 49
+    f1_home_key = 43,
+    f2_home_key = 47
     
 } home_key;
 
@@ -316,8 +316,11 @@ void StepperController::home(){
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
+ 
     int distance_to_first_key = abs(current_key - next_key_ptr->key_pos)* 402;// should be 800 for 1/16 step size 
-    
+    if( config.RMT_CH==1){
+        distance_to_first_key =abs(current_key - next_key_ptr->key_pos)*408;
+    }
     for(int i = 0; i < distance_to_first_key ; i++){
         digitalWrite(config.STEP_PIN, HIGH);
         ets_delay_us(100); 
