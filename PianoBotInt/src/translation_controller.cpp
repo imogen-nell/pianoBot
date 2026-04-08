@@ -202,7 +202,9 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     }
     else if (curr_move_us/1000 < max_time ){
         //wait for synchronization
-        
+        if(steps> step_buffer_capacity){
+            Serial.printf("WARNING: step buffer overflow for move of keys %d, truncating steps to %d\n", keys, step_buffer_capacity / config.STEPS_PER_KEY);
+        }
         rmt_write_items(config.RMT_CH, step_buffer, steps, true);
         // uint32_t ms_to_wait = (max_time * 1000) - (uint32_t)curr_move_us;
         uint32_t total_wait_us = (max_time * 1000) - (uint32_t)curr_move_us;
@@ -219,6 +221,9 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
             
             total_wait_us -= chunk;
             i++;
+        }
+        if (i >= wait_buffer_capacity) {
+            Serial.printf("WARNING: Wait buffer overflow for wait time %f ms, truncating wait\n", total_wait_us / 1000.0f);
         }
         rmt_write_items(config.RMT_CH, wait_buffer, i, false);
 
