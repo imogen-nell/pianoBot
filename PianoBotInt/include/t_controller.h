@@ -47,11 +47,17 @@ private:
     //flag for isr to notify main ctrlr
     int isr_flag = 0;
 
-    // current position
+    // current position .. transmission time 
     int current_key = 0;
-    rmt_item32_t* step_buffer = nullptr;
-    uint32_t step_buffer_capacity = 0;
     int curr_move_us = 0;
+
+    //rmt signal buffers 
+    rmt_item32_t* step_buffer = nullptr;
+    rmt_item32_t* wait_buffer = nullptr; 
+
+    uint32_t wait_buffer_capacity = 0;  
+    uint32_t step_buffer_capacity = 0;
+    
 
 
     // key array pointers
@@ -69,13 +75,13 @@ private:
     // helper
     void home();
     void move_keys(int keys, direction dirr, float time_ms = 20.0f);
-    void populate_step_buffer(uint16_t steps, uint16_t hz);
+    // void populate_step_buffer(uint16_t steps, uint16_t hz);
     std::pair<rmt_item32_t, int> trapezoid(int steps, int stepCount);
     double short_vel = 0.0; 
     double long_vel = 0.0;
     double short_accel = 0.0; 
     double long_accel = 0.0; 
-    void rehome();
+    // void rehome();
 
     // FreeRTOS entry wrapper
     static void taskEntry(void* pvParameters);

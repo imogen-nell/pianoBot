@@ -39,6 +39,14 @@ StepperController::StepperController(const StepperConfig& cfg, const key_entry* 
     );
 
     assert(step_buffer);
+    wait_buffer_capacity = step_buffer_capacity / 2; 
+
+    wait_buffer = (rmt_item32_t*) heap_caps_malloc(
+        wait_buffer_capacity * sizeof(rmt_item32_t),
+        MALLOC_CAP_DMA
+    );
+
+    assert(wait_buffer);
 
     
 
@@ -121,8 +129,8 @@ void StepperController::run(){
         //print key end locaiton
         // Serial.printf("Motor %d: MOVING TO pos: %d\n", config.RMT_CH + 1, next_key_ptr- key_end);
         if(next_key_ptr >= key_end){
-            // Serial.printf("Motor %d: re-starting song\n", config.RMT_CH + 1);
-            rehome();
+            Serial.printf("SONG OVER\n", config.RMT_CH + 1);
+            // rehome();
         }
         
         // else{
@@ -175,7 +183,7 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
    
 
 
-    rmt_wait_tx_done(config.RMT_CH, portMAX_DELAY);
+    rmt_wait_tx_done(config.RMT_CH, portMAX_DELAY); // safety for blocking move when wait is needed 
     digitalWrite(config.DIR_PIN, dirr);
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
@@ -204,15 +212,15 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
             // RMT duration is 15-bit (max 32767). Use 30000 for a safe "chunk".
             uint32_t chunk = (total_wait_us > 30000) ? 30000 : total_wait_us;
             
-            step_buffer[i].level0 = 0;
-            step_buffer[i].duration0 = chunk;
-            step_buffer[i].level1 = 0;
-            step_buffer[i].duration1 = 0; // Use 0 to ignore the second half of the item
+            wait_buffer[i].level0 = 0;
+            wait_buffer[i].duration0 = chunk;
+            wait_buffer[i].level1 = 0;
+            wait_buffer[i].duration1 = 0; // Use 0 to ignore the second half of the item
             
             total_wait_us -= chunk;
             i++;
         }
-        rmt_write_items(config.RMT_CH, step_buffer, i, false);
+        rmt_write_items(config.RMT_CH, wait_buffer, i, false);
 
     }
     else{
@@ -229,17 +237,17 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
 
 
 
-void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
-{
-    uint32_t half_period_us = 1000000UL / hz / 2;
+// void StepperController::populate_step_buffer(uint16_t steps, uint16_t hz )
+// {
+//     uint32_t half_period_us = 1000000UL / hz / 2;
 
-    for(int i = 0; i < steps; i++){
-        step_buffer[i].level0 = 1;
-        step_buffer[i].duration0 = half_period_us;
-        step_buffer[i].level1 = 0;
-        step_buffer[i].duration1 = half_period_us;
-    }
-}
+//     for(int i = 0; i < steps; i++){
+//         step_buffer[i].level0 = 1;
+//         step_buffer[i].duration0 = half_period_us;
+//         step_buffer[i].level1 = 0;
+//         step_buffer[i].duration1 = half_period_us;
+//     }
+// }
 
 std::pair<rmt_item32_t, int> StepperController::trapezoid(int steps, int stepCount) {   
 
@@ -335,78 +343,78 @@ void StepperController::home(){
 
 //re home steepper ( after RMT is set up )
 //should not notify main ctrlr until rehoming complete 
-void StepperController::rehome( ){
-    Serial.printf("---- REHOME Motor %d ----\n", config.RMT_CH+1);
-    // isr_flag = 1;
+// void StepperController::rehome( ){
+//     Serial.printf("---- REHOME Motor %d ----\n", config.RMT_CH+1);
+//     // isr_flag = 1;
 
-    digitalWrite(config.DIR_PIN, direction::LEFT);
-    ets_delay_us(5); 
+//     digitalWrite(config.DIR_PIN, direction::LEFT);
+//     ets_delay_us(5); 
 
 
-    uint16_t steps = 35; // small move  
-    uint16_t hz = 5000; // fast move
-    populate_step_buffer(steps, hz);
+//     uint16_t steps = 35; // small move  
+//     uint16_t hz = 5000; // fast move
+//     populate_step_buffer(steps, hz);
 
-    while(digitalRead(config.HOME_SWITCH_PIN) == LOW) {
-        //  true to wait for all items to be sent before returning
-        // rmt_write_items(config.RMT_CH, step_buffer, steps, isr_flag == 1);
-        rmt_write_items(config.RMT_CH, step_buffer, steps, false);
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+//     while(digitalRead(config.HOME_SWITCH_PIN) == LOW) {
+//         //  true to wait for all items to be sent before returning
+//         // rmt_write_items(config.RMT_CH, step_buffer, steps, isr_flag == 1);
+//         rmt_write_items(config.RMT_CH, step_buffer, steps, false);
+//         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    }
-    //stop RMT in case still running
-    rmt_tx_stop(config.RMT_CH);
-    Serial.printf("Motor %d: home hit \n", config.RMT_CH + 1);
+//     }
+//     //stop RMT in case still running
+//     rmt_tx_stop(config.RMT_CH);
+//     Serial.printf("Motor %d: home hit \n", config.RMT_CH + 1);
   
-    //update position to home key (leftmost)
-    current_key = (config.RMT_CH == 0) ? f1_home_key : f2_home_key;
+//     //update position to home key (leftmost)
+//     current_key = (config.RMT_CH == 0) ? f1_home_key : f2_home_key;
 
-    // //move to start key here 
+//     // //move to start key here 
     
-    int key_diff = key_start->key_pos - current_key;
-    Serial.printf("-------------- moving motor %d to start key %d, %d keys over ---------------\n", config.RMT_CH+1,key_start->key_pos, abs(key_diff));
-    if(key_diff != 0) {
-        digitalWrite(config.DIR_PIN, (key_diff > 0) ? direction::LEFT : direction::RIGHT);
-        ets_delay_us(2);
+//     int key_diff = key_start->key_pos - current_key;
+//     Serial.printf("-------------- moving motor %d to start key %d, %d keys over ---------------\n", config.RMT_CH+1,key_start->key_pos, abs(key_diff));
+//     if(key_diff != 0) {
+//         digitalWrite(config.DIR_PIN, (key_diff > 0) ? direction::LEFT : direction::RIGHT);
+//         ets_delay_us(2);
 
-        uint32_t total_steps_needed = abs(key_diff) * config.STEPS_PER_KEY;
+//         uint32_t total_steps_needed = abs(key_diff) * config.STEPS_PER_KEY;
         
-        // Use a small, SAFE chunk of steps
-        //  ensures we never overflow the buffer
-        uint16_t chunk_size = 64; 
-        populate_step_buffer(chunk_size, hz);
+//         // Use a small, SAFE chunk of steps
+//         //  ensures we never overflow the buffer
+//         uint16_t chunk_size = 64; 
+//         populate_step_buffer(chunk_size, hz);
 
-        // Send chunks until done
-        uint32_t steps_sent = 0;
-        while(steps_sent < total_steps_needed) {
-            uint32_t to_send = (total_steps_needed - steps_sent > chunk_size) ? chunk_size : (total_steps_needed - steps_sent);
-            // true = wait for completion so we don't overwhelm the RMT
-            rmt_write_items(config.RMT_CH, step_buffer, to_send, false);
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-            steps_sent += to_send;
-        }
-        current_key -= steps_sent/config.STEPS_PER_KEY; //update position to start key after move
-    }
+//         // Send chunks until done
+//         uint32_t steps_sent = 0;
+//         while(steps_sent < total_steps_needed) {
+//             uint32_t to_send = (total_steps_needed - steps_sent > chunk_size) ? chunk_size : (total_steps_needed - steps_sent);
+//             // true = wait for completion so we don't overwhelm the RMT
+//             rmt_write_items(config.RMT_CH, step_buffer, to_send, false);
+//             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+//             steps_sent += to_send;
+//         }
+//         current_key -= steps_sent/config.STEPS_PER_KEY; //update position to start key after move
+//     }
     
 
-    // SYNC BARRIER ---
-    const EventBits_t finger1Bit = (1 << 0);
-    const EventBits_t finger2Bit = (1 << 1);
-    const EventBits_t allReadyBits = finger1Bit | finger2Bit;
-    EventBits_t thisBit = (config.RMT_CH == 0) ? finger1Bit : finger2Bit;
-    next_key_ptr = key_start; //reset song position to start after rehome
-    if (syncStartEventGroup != NULL) {
-        //motor waitinghere 
-        xEventGroupSync(
-            syncStartEventGroup,
-            thisBit,         
-            allReadyBits,    
-            portMAX_DELAY    
-        );
-    }
+//     // SYNC BARRIER ---
+//     const EventBits_t finger1Bit = (1 << 0);
+//     const EventBits_t finger2Bit = (1 << 1);
+//     const EventBits_t allReadyBits = finger1Bit | finger2Bit;
+//     EventBits_t thisBit = (config.RMT_CH == 0) ? finger1Bit : finger2Bit;
+//     next_key_ptr = key_start; //reset song position to start after rehome
+//     if (syncStartEventGroup != NULL) {
+//         //motor waitinghere 
+//         xEventGroupSync(
+//             syncStartEventGroup,
+//             thisBit,         
+//             allReadyBits,    
+//             portMAX_DELAY    
+//         );
+//     }
 
-    //clear any notifications from homing process to prevent false triggers in main loop
-    ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);
-    // isr_flag = 0; //re eneable normal operation
+//     //clear any notifications from homing process to prevent false triggers in main loop
+//     ulTaskNotifyValueClear(NULL, 0xFFFFFFFF);
+//     // isr_flag = 0; //re eneable normal operation
 
-}
+// }
