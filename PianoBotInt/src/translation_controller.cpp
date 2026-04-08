@@ -175,7 +175,7 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
    
 
 
-
+    rmt_wait_tx_done(config.RMT_CH, portMAX_DELAY);
     digitalWrite(config.DIR_PIN, dirr);
     ets_delay_us(5);  // ESP32-safe microsecond delay
 
