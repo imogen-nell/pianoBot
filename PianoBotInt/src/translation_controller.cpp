@@ -60,6 +60,7 @@ StepperController::StepperController(const StepperConfig& cfg, const key_entry* 
     rmt_cfg .tx_config.idle_level = RMT_IDLE_LEVEL_LOW; //signal level out output when idle
 
     rmt_config(&rmt_cfg );
+    // rmt_set_source_clk(config.RMT_CH, RMT_SOURCE_CLK_APB);
     rmt_driver_install(rmt_cfg.channel, 0, 0); //RX buffer not used, default flags 
     
     // Register the callback ONCE (it's okay to call it multiple times, 
@@ -187,7 +188,7 @@ void StepperController::move_keys(int keys, direction dirr, float time_ms ){
     }
     int max_time = next_key_ptr->time_ms;
     if(curr_move_us/1000 > max_time){
-        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for move of keys  %d\n", curr_move_us/1000.0f, max_time, config.RMT_CH + 1);
+        Serial.printf("WARNING: step generation time %f ms exceeds target move time %d ms for move of keys  %d\n", curr_move_us/1000.0f, max_time, keys);
         Serial.print("Target ms: "); Serial.println(next_key_ptr->time_ms);
         rmt_write_items(config.RMT_CH, step_buffer, steps, false);
     }
@@ -286,6 +287,7 @@ std::pair<rmt_item32_t, int> StepperController::trapezoid(int steps, int stepCou
     if (cn < cmin) cn = cmin;
 
     uint32_t half_period_us = (uint32_t)(cn / 2.0);
+    if (half_period_us < 2) half_period_us = 2;  // Minimum 2 µs pulse
 
     rmt_item32_t item;
     item.level0 = 1; item.duration0 = half_period_us;    
@@ -314,7 +316,7 @@ void StepperController::home(){
 
     digitalWrite(config.DIR_PIN, direction::RIGHT);
     //move to first key manually
-    int distance_to_first_key = abs(current_key - next_key_ptr->key_pos)* 400;// should be 800 for 1/16 step size 
+    int distance_to_first_key = abs(current_key - next_key_ptr->key_pos)* 402;// should be 800 for 1/16 step size 
     
     for(int i = 0; i < distance_to_first_key ; i++){
         digitalWrite(config.STEP_PIN, HIGH);
