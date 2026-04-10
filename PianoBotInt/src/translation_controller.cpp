@@ -9,7 +9,7 @@
 
 typedef enum{
     f1_home_key = 50,//45
-    f2_home_key = 49 //
+    f2_home_key = 54 //
     
 } home_key;
 
